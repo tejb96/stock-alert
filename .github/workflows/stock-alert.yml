@@ -1,0 +1,27 @@
+name: Stock alert
+
+on:
+  schedule:
+    - cron: "0 8,20 * * *"
+  workflow_dispatch:
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install dependencies
+        run: pip install -r scripts/requirements.txt
+
+      - name: Send Discord digest
+        run: python scripts/notify.py
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          YAHOO_USER_AGENT: stock_alert-cron/1.0
+          MIN_MENTIONS: "20"
+          APEWISDOM_TOP_N: "50"
