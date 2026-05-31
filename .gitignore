@@ -1,4 +1,2 @@
-.env.frontend
-.env.backend
-
-.pnpm-store/
+__pycache__/
+*.py[cod]
