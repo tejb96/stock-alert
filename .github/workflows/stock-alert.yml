@@ -8,6 +8,8 @@ on:
 jobs:
   notify:
     runs-on: ubuntu-latest
+    permissions:
+      models: read
     steps:
       - uses: actions/checkout@v4
 
@@ -25,3 +27,5 @@ jobs:
           YAHOO_USER_AGENT: stock_alert-cron/1.0
           MIN_MENTIONS: "20"
           APEWISDOM_TOP_N: "50"
+          ENABLE_RESEARCH: "1"
+          RESEARCH_MODEL: "openai/gpt-4o-mini"

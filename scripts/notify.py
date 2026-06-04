@@ -16,6 +16,9 @@ YAHOO_CHART_URL = "https://query1.finance.yahoo.com/v8/finance/chart/{symbol}"
 GOLD_SYMBOL = "GC=F"
 SILVER_SYMBOL = "SI=F"
 APEWISDOM_STOCKS_URL = "https://apewisdom.io/api/v1.0/filter/all-stocks"
+GITHUB_MODELS_URL_DEFAULT = "https://models.github.ai/inference/chat/completions"
+RESEARCH_MARKER = "**Research —"
+DISCORD_CONTENT_LIMIT = 2000
 
 TOP_TRENDS = 3
 
@@ -51,6 +54,21 @@ class StockQuote:
     fifty_two_week_high: float | None
 
 
+@dataclass(frozen=True)
+class NewsHeadline:
+    title: str
+    url: str
+    source: str
+    body: str | None = None
+
+
+@dataclass(frozen=True)
+class TickerResearch:
+    ticker: str
+    summary: str
+    headlines: list[NewsHeadline]
+
+
 def _env(name: str, default: str) -> str:
     return os.environ.get(name, default)
 
@@ -60,6 +78,13 @@ def _env_int(name: str, default: int) -> int:
     if raw is None:
         return default
     return int(raw)
+
+
+def _env_bool(name: str, default: bool) -> bool:
+    raw = os.environ.get(name)
+    if raw is None:
+        return default
+    return raw.strip().lower() in ("1", "true", "yes", "on")
 
 
 def compute_change_24h(mentions: int, mentions_24h_ago: int | None) -> float | None:
@@ -185,11 +210,215 @@ def _format_stock_quote_line(quote: StockQuote) -> str:
     return f"**{quote.ticker}** · ${quote.price:.2f} ({change}){range_part}"
 
 
+def _fetch_news_sync(ticker: str, max_results: int) -> list[NewsHeadline]:
+    from ddgs import DDGS
+
+    rows = DDGS().news(
+        query=f"{ticker} stock",
+        region="us-en",
+        timelimit="w",
+        max_results=max_results,
+    )
+    headlines: list[NewsHeadline] = []
+    for row in rows:
+        title = row.get("title")
+        url = row.get("url")
+        if not title or not url:
+            continue
+        source = str(row.get("source") or "unknown")
+        body_raw = row.get("body")
+        body = str(body_raw) if body_raw else None
+        headlines.append(
+            NewsHeadline(
+                title=str(title).strip(),
+                url=str(url).strip(),
+                source=source.strip(),
+                body=body,
+            )
+        )
+    return headlines
+
+
+async def fetch_news_headlines(ticker: str, *, max_results: int) -> list[NewsHeadline]:
+    try:
+        return await asyncio.to_thread(_fetch_news_sync, ticker, max_results)
+    except Exception as exc:
+        print(f"research: news fetch failed for {ticker}: {exc}", file=sys.stderr)
+        return []
+
+
+def _build_research_prompt(
+    ticker: str,
+    trend: TrendRow,
+    headlines: list[NewsHeadline],
+) -> list[dict[str, str]]:
+    change_str = _format_change(trend.change_24h)
+    headline_lines: list[str] = []
+    for index, headline in enumerate(headlines, start=1):
+        snippet = f" — {headline.body}" if headline.body else ""
+        headline_lines.append(f"{index}. {headline.title} ({headline.source}){snippet}")
+
+    user_content = (
+        f"Ticker: {ticker}\n"
+        f"Reddit (ApeWisdom): rank #{trend.rank}, {trend.mentions} mentions, "
+        f"{change_str} mentions vs 24h ago, trend score {trend.trend_score:.1f}\n\n"
+        f"Recent headlines:\n"
+        f"{chr(10).join(headline_lines)}\n\n"
+        "In 2-3 sentences, explain why this ticker is likely trending on Reddit right now.\n"
+        "Use only the headlines and stats above. No investment advice."
+    )
+
+    return [
+        {
+            "role": "system",
+            "content": (
+                "You write brief market context blurbs for a Discord digest. "
+                "Be factual. No price targets or buy/sell advice. "
+                "2-3 sentences max (~400 chars)."
+            ),
+        },
+        {"role": "user", "content": user_content},
+    ]
+
+
+def _headline_fallback_summary(headlines: list[NewsHeadline]) -> str:
+    bullets = [f"• {h.title} ({h.source})" for h in headlines[:3]]
+    return "Recent headlines:\n" + "\n".join(bullets)
+
+
+async def summarize_with_github_models(
+    client: httpx.AsyncClient,
+    ticker: str,
+    trend: TrendRow,
+    headlines: list[NewsHeadline],
+) -> str | None:
+    token = os.environ.get("GITHUB_TOKEN", "").strip()
+    if not token:
+        return None
+
+    model = _env("RESEARCH_MODEL", "openai/gpt-4o-mini")
+    url = _env("GITHUB_MODELS_URL", GITHUB_MODELS_URL_DEFAULT)
+    messages = _build_research_prompt(ticker, trend, headlines)
+
+    try:
+        response = await client.post(
+            url,
+            headers={
+                "Authorization": f"Bearer {token}",
+                "Content-Type": "application/json",
+                "Accept": "application/vnd.github+json",
+                "X-GitHub-Api-Version": "2022-11-28",
+            },
+            json={
+                "model": model,
+                "messages": messages,
+                "max_tokens": 200,
+                "temperature": 0.3,
+            },
+            timeout=30.0,
+        )
+        if response.status_code >= 400:
+            print(
+                f"research: GitHub Models failed for {ticker}: "
+                f"{response.status_code} {response.text}",
+                file=sys.stderr,
+            )
+            return None
+
+        payload = response.json()
+        choices = payload.get("choices")
+        if not choices:
+            print(f"research: GitHub Models empty choices for {ticker}", file=sys.stderr)
+            return None
+
+        message = choices[0].get("message", {})
+        content = message.get("content")
+        if not content or not isinstance(content, str):
+            print(f"research: GitHub Models missing content for {ticker}", file=sys.stderr)
+            return None
+
+        return content.strip()
+    except (httpx.HTTPError, KeyError, TypeError, ValueError) as exc:
+        print(f"research: GitHub Models error for {ticker}: {exc}", file=sys.stderr)
+        return None
+
+
+async def summarize_research(
+    client: httpx.AsyncClient,
+    ticker: str,
+    trend: TrendRow,
+    headlines: list[NewsHeadline],
+) -> str:
+    summary = await summarize_with_github_models(client, ticker, trend, headlines)
+    if summary:
+        return summary
+    return _headline_fallback_summary(headlines)
+
+
+def _format_research_block(research: TickerResearch) -> str:
+    lines = [
+        f"**Research — {research.ticker}** (top trend)",
+        research.summary,
+    ]
+    if research.headlines:
+        lines.append("")
+        lines.append("**Sources**")
+        for headline in research.headlines:
+            lines.append(f"• [{headline.title}]({headline.url}) — {headline.source}")
+    return "\n".join(lines)
+
+
+def truncate_discord_content(content: str, *, limit: int = DISCORD_CONTENT_LIMIT) -> str:
+    if len(content) <= limit:
+        return content
+
+    marker_idx = content.find(RESEARCH_MARKER)
+    if marker_idx < 0:
+        return content[: limit - 1] + "…"
+
+    prefix = content[:marker_idx].rstrip()
+    if len(prefix) >= limit:
+        return prefix[: limit - 1] + "…"
+
+    research = content[marker_idx:]
+    joiner = "\n\n" if prefix else ""
+    base_len = len(prefix) + len(joiner)
+
+    def fits(part: str) -> bool:
+        return base_len + len(part) <= limit
+
+    if fits(research):
+        return prefix + joiner + research
+
+    sources_marker = "\n\n**Sources**"
+    sources_idx = research.find(sources_marker)
+    if sources_idx >= 0:
+        without_sources = research[:sources_idx]
+        if fits(without_sources):
+            return prefix + joiner + without_sources
+
+        header_end = research.find("\n")
+        if header_end >= 0:
+            header = research[: header_end + 1]
+            summary = research[header_end + 1 : sources_idx].strip()
+            available = limit - base_len - len(header) - 1
+            if available > 0:
+                if len(summary) > available:
+                    summary = summary[: available - 1] + "…"
+                trimmed = header + summary
+                if fits(trimmed):
+                    return prefix + joiner + trimmed
+
+    truncated = research[: limit - base_len - 1] + "…"
+    return prefix + joiner + truncated
+
+
 def build_message(
     quote: RatioQuote,
     trends: list[TrendRow],
     stock_quotes: list[StockQuote],
     *,
+    research: TickerResearch | None = None,
     when: datetime | None = None,
 ) -> str:
     ts = when or datetime.now(UTC)
@@ -226,6 +455,9 @@ def build_message(
                 *[_format_stock_quote_line(q) for q in stock_quotes],
             ]
         )
+
+    if research is not None:
+        lines.extend(["", _format_research_block(research)])
 
     return "\n".join(lines)
 
@@ -316,7 +548,17 @@ async def run() -> None:
             if quote is not None:
                 stock_quotes.append(quote)
 
-        content = build_message(ratio, top_trends, stock_quotes)
+        research: TickerResearch | None = None
+        if top_trends and _env_bool("ENABLE_RESEARCH", True):
+            top = top_trends[0]
+            max_news = _env_int("RESEARCH_NEWS_COUNT", 5)
+            headlines = await fetch_news_headlines(top.ticker, max_results=max_news)
+            if headlines:
+                summary = await summarize_research(client, top.ticker, top, headlines)
+                research = TickerResearch(top.ticker, summary, headlines[:3])
+
+        content = build_message(ratio, top_trends, stock_quotes, research=research)
+        content = truncate_discord_content(content)
         await send_discord(client, content)
 
 

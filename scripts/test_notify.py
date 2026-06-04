@@ -11,14 +11,20 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from notify import (  # noqa: E402
+    DISCORD_CONTENT_LIMIT,
+    NewsHeadline,
     RatioQuote,
     StockQuote,
+    TickerResearch,
     TrendRow,
     build_message,
     compute_change_24h,
     compute_trend_score,
     enrich_and_rank,
+    truncate_discord_content,
+    _build_research_prompt,
     _extract_stock_quote,
+    _format_research_block,
     _parse_apewisdom_row,
 )
 
@@ -101,6 +107,84 @@ def test_build_message_ratio_only():
     assert "**Gold/Silver ratio**" in message
     assert "**Top trends**" not in message
     assert "**Yahoo quotes**" not in message
+
+
+def test_build_message_research_after_yahoo():
+    ratio = RatioQuote(2000.0, 25.0, 80.0, "REGULAR")
+    trends = [TrendRow("GME", 2, 120, 500, 85.0, 222.0)]
+    quotes = [StockQuote("GME", 25.40, 3.2, 18.0, 30.10)]
+    research = TickerResearch(
+        "GME",
+        "GME is trending on Reddit amid earnings chatter.",
+        [
+            NewsHeadline(
+                "GameStop posts surprise profit",
+                "https://example.com/a",
+                "Reuters",
+            )
+        ],
+    )
+    when = datetime(2026, 6, 4, 8, 0, tzinfo=UTC)
+    message = build_message(ratio, trends, quotes, research=research, when=when)
+
+    yahoo_idx = message.index("**Yahoo quotes**")
+    research_idx = message.index("**Research — GME**")
+    assert yahoo_idx < research_idx
+    assert "**GME** · $25.40" in message[yahoo_idx:research_idx]
+    assert "top trend" in message
+
+
+def test_format_research_block_sources():
+    research = TickerResearch(
+        "AMC",
+        "Summary line.",
+        [
+            NewsHeadline("Headline A", "https://news.example/a", "Reuters"),
+            NewsHeadline("Headline B", "https://news.example/b", "Bloomberg"),
+        ],
+    )
+    block = _format_research_block(research)
+
+    assert "**Research — AMC** (top trend)" in block
+    assert "Summary line." in block
+    assert "**Sources**" in block
+    assert "[Headline A](https://news.example/a) — Reuters" in block
+    assert "[Headline B](https://news.example/b) — Bloomberg" in block
+
+
+def test_truncate_discord_preserves_header():
+    ratio = RatioQuote(2000.0, 25.0, 80.0, "REGULAR")
+    trends = [TrendRow("GME", 2, 120, 500, 85.0, 222.0)]
+    quotes = [StockQuote("GME", 25.40, 3.2, 18.0, 30.10)]
+    long_summary = "x" * 2500
+    research = TickerResearch("GME", long_summary, [])
+    message = build_message(ratio, trends, quotes, research=research)
+
+    assert len(message) > DISCORD_CONTENT_LIMIT
+    truncated = truncate_discord_content(message)
+
+    assert len(truncated) <= DISCORD_CONTENT_LIMIT
+    assert "**Stock alert digest**" in truncated
+    assert "**Gold/Silver ratio**" in truncated
+    assert "**Yahoo quotes**" in truncated
+    assert "**GME** · $25.40" in truncated
+    assert truncated.index("**Yahoo quotes**") < truncated.index("**Research — GME**")
+
+
+def test_build_research_prompt_includes_stats():
+    trend = TrendRow("GME", 2, 120, 500, 85.0, 222.0)
+    headlines = [
+        NewsHeadline("Retail traders pile in", "https://example.com", "CNBC", "snippet"),
+    ]
+    messages = _build_research_prompt("GME", trend, headlines)
+
+    user_content = messages[1]["content"]
+    assert "GME" in user_content
+    assert "120 mentions" in user_content
+    assert "+85.0%" in user_content
+    assert "222.0" in user_content
+    assert "Retail traders pile in" in user_content
+    assert "CNBC" in user_content
 
 
 def test_extract_stock_quote_from_yahoo_payload():

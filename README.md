@@ -9,6 +9,7 @@ Each digest includes:
 - **Gold/silver ratio** — COMEX futures (`GC=F` / `SI=F`) from Yahoo Finance
 - **Top 3 trending tickers** — ranked by a custom trend score from [ApeWisdom](https://apewisdom.io/) Reddit mention data
 - **Yahoo quotes** — price, daily change, and 52-week range for those tickers
+- **Research** (optional) — for the #1 trend ticker: recent news headlines and a short AI summary linking Reddit buzz to likely catalysts
 
 ## How it works
 
@@ -20,6 +21,8 @@ GitHub Actions (08:00 & 20:00 UTC)
         │
         ├── Yahoo Finance  → gold/silver ratio + stock quotes
         ├── ApeWisdom API  → mention counts & 24h change
+        ├── DuckDuckGo news → headlines for top trend ticker
+        ├── GitHub Models  → brief research summary (CI)
         └── Discord webhook → formatted digest message
 ```
 
@@ -53,8 +56,12 @@ Tickers need at least `MIN_MENTIONS` (default 20) to qualify. Negative 24h chang
 ```bash
 pip install -r scripts/requirements.txt
 export DISCORD_WEBHOOK_URL="https://discord.com/api/webhooks/..."
+# Optional: AI summary via GitHub Models (PAT with `models` scope)
+export GITHUB_TOKEN="ghp_..."
 python scripts/notify.py
 ```
+
+Without `GITHUB_TOKEN`, research still appears when news is found, using headline bullets instead of an AI summary.
 
 ### Tests
 
@@ -73,6 +80,12 @@ Set these as repository **Variables** in GitHub (or export them locally):
 | `MIN_MENTIONS` | `20` | Minimum mentions for a ticker to be ranked. |
 | `APEWISDOM_TOP_N` | `50` | Rows fetched from ApeWisdom before ranking. |
 | `YAHOO_USER_AGENT` | `stock_alert-cron/1.0` | User-Agent for Yahoo Finance requests. |
+| `ENABLE_RESEARCH` | `1` | Set `0` to disable the research block. |
+| `RESEARCH_MODEL` | `openai/gpt-4o-mini` | [GitHub Models](https://docs.github.com/en/github-models) catalog ID for summaries. |
+| `RESEARCH_NEWS_COUNT` | `5` | Headlines fetched for model context. |
+| `GITHUB_MODELS_URL` | `https://models.github.ai/inference/chat/completions` | Override inference endpoint (e.g. tests). |
+
+In GitHub Actions, `GITHUB_TOKEN` is provided automatically when the workflow has `permissions: models: read`. Private repos may have different GitHub Models access than public repos — see the [GitHub Models docs](https://docs.github.com/en/github-models).
 
 ## Project layout
 
@@ -81,7 +94,7 @@ Set these as repository **Variables** in GitHub (or export them locally):
 scripts/
   notify.py                         # Fetch data, build message, post to Discord
   test_notify.py                    # Unit tests for scoring and formatting
-  requirements.txt                  # Python dependencies (httpx)
+  requirements.txt                  # Python dependencies (httpx, ddgs)
 CRON.md                             # Additional cron setup notes
 ```
 
@@ -89,3 +102,4 @@ CRON.md                             # Additional cron setup notes
 
 - Python 3.13 (used in CI)
 - [httpx](https://www.python-httpx.org/) for async HTTP
+- [ddgs](https://pypi.org/project/ddgs/) for news headline search
