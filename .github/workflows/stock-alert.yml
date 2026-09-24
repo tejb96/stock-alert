@@ -2,7 +2,11 @@ name: Stock alert
 
 on:
   schedule:
-    - cron: "17 8,20 * * *"
+    # Odd minutes dodge the :00/:15/:30 GitHub cron rush. Times are UTC (ET = UTC-4 in summer, UTC-5 in winter).
+    - cron: "37 12 * * 1-5" # pre-market: overnight Reddit growth, before the 9:30 ET open
+    - cron: "23 14 * * 1-5" # post-open: opening noise settled, relative volume meaningful
+    - cron: "7 20 * * 1-5" # close: final daily volume, what's building for tomorrow
+    - cron: "13 21 * * 0" # Sunday: weekend DD threads before Monday
   workflow_dispatch:
 
 jobs:
@@ -24,8 +28,11 @@ jobs:
         run: python scripts/notify.py
         env:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           YAHOO_USER_AGENT: stock_alert-cron/1.0
-          MIN_MENTIONS: "20"
-          APEWISDOM_TOP_N: "50"
+          MIN_MENTIONS: "5"
+          APEWISDOM_PAGES: "3"
+          TOP_N: "5"
+          MIN_PRICE: "1"
           ENABLE_RESEARCH: "1"
           RESEARCH_MODEL: "openai/gpt-4o-mini"
