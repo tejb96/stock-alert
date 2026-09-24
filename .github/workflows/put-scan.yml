@@ -1,0 +1,47 @@
+name: Put scan
+
+on:
+  schedule:
+    # 14:47 UTC ≈ 10:47 ET in summer (9:47 in winter): after the opening auction, once option spreads have tightened.
+    - cron: "47 14 * * 1-5"
+  workflow_dispatch:
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # push IV history to the `state` branch
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check out run history
+        uses: actions/checkout@v4
+        with:
+          ref: state
+          path: state
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: scripts/requirements.txt
+
+      - name: Install dependencies
+        run: pip install -r scripts/requirements.txt
+
+      - name: Scan cash-secured puts
+        run: python scripts/put_scan.py
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          STATE_DIR: state
+          YAHOO_USER_AGENT: stock_alert-cron/1.0
+          CSP_ANCHORS: "GME"
+          # Add comma-separated tickers you'd be happy to own to get ranked picks as well.
+          CSP_WATCHLIST: ""
+          CSP_TOP_N: "5"
+          CSP_MAX_CAPITAL: "3000"
+
+      - name: Save run history
+        run: scripts/save_state.sh "put-scan ${{ github.run_id }}"
+        env:
+          STATE_DIR: state
