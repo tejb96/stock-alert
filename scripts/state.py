@@ -17,6 +17,8 @@ from reddit import TrendRow
 
 DIGEST_STATE_FILE = "digest.json"
 SEC_STATE_FILE = "sec.json"
+OPTIONS_STATE_FILE = "options.json"
+MACRO_STATE_FILE = "macro.json"
 
 SNAPSHOT_RETENTION_DAYS = 14
 ALERT_RETENTION_DAYS = 30
