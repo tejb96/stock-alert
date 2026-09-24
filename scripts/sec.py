@@ -134,6 +134,8 @@ class SecActivity:
     buys: list[Form4]
     sell_value: float
     eight_ks: list[FilingRef]
+    planned_sell_value: float = 0.0
+    """Part of sell_value from 10b5-1 plans: sales scheduled months ahead, so they say little about today."""
 
     @property
     def buy_value(self) -> float:
@@ -332,6 +334,18 @@ class SecClient:
     async def recent_filings(self, cik: int) -> list[FilingRef]:
         return parse_recent_filings((await self.get(SEC_SUBMISSIONS_URL.format(cik=cik))).json())
 
+    async def sic_for(self, ticker: str) -> int | None:
+        """Standard Industrial Classification code, or None for unknown tickers and funds."""
+        try:
+            cik = await self.cik_for(ticker)
+            if cik is None:
+                return None
+            sic = (await self.get(SEC_SUBMISSIONS_URL.format(cik=cik))).json().get("sic")
+            return int(sic) if sic else None
+        except (httpx.HTTPError, ValueError, TypeError) as exc:
+            print(f"sec: SIC lookup failed for {ticker}: {exc}", file=sys.stderr)
+            return None
+
     async def fetch_form4(self, cik: int, accession: str, filed: str) -> Form4 | None:
         url = SEC_SUBMISSION_TXT_URL.format(cik=cik, folder=accession_folder(accession), accession=accession)
         xml_text = extract_ownership_xml((await self.get(url)).text)
@@ -385,6 +399,7 @@ async def ticker_activity(
         buys=[f for f in form4s if f.buy_value > 0],
         sell_value=sum(f.sell_value for f in form4s),
         eight_ks=eight_ks,
+        planned_sell_value=sum(f.sell_value for f in form4s if f.planned),
     )
 
 
@@ -400,6 +415,15 @@ def _days_ago(filed: str, today: date) -> str:
     return f"{delta}d ago"
 
 
+def _sale_plan_note(activity: SecActivity) -> str:
+    unplanned = activity.sell_value - activity.planned_sell_value
+    if unplanned < 1:
+        return ", all pre-scheduled 10b5-1 — routine"
+    if activity.planned_sell_value < 1:
+        return ", not pre-scheduled"
+    return f", {format_usd(unplanned)} of it not pre-scheduled"
+
+
 def format_activity_line(activity: SecActivity, *, today: date) -> str | None:
     parts: list[str] = []
     if activity.buys:
@@ -407,7 +431,7 @@ def format_activity_line(activity: SecActivity, *, today: date) -> str | None:
         who = f"{latest.role} {latest.owner}" if activity.buyer_count == 1 else f"{activity.buyer_count} insiders"
         parts.append(f"**{who} bought {format_usd(activity.buy_value)}** (30d, latest {_days_ago(latest.filed, today)})")
     elif activity.sell_value > 0:
-        parts.append(f"Insiders: no buys, sold {format_usd(activity.sell_value)} (30d)")
+        parts.append(f"Insiders: no buys, sold {format_usd(activity.sell_value)} (30d{_sale_plan_note(activity)})")
     for filing in activity.eight_ks[:2]:
         parts.append(f"8-K {_days_ago(filing.filed, today)}: {describe_items(filing.items)}")
     if not parts:

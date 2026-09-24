@@ -13,10 +13,10 @@ from sec_check import (
     build_8k_embed,
     build_insider_embed,
     feed_window_start,
-    latest_reddit,
-    new_entries,
     filing_lag_days,
     is_listed_ticker,
+    latest_reddit,
+    new_entries,
     qualifying_buys,
     should_alert,
     watched_tickers,
@@ -73,7 +73,7 @@ def test_qualifying_buys_skips_placeholder_tickers():
 def test_should_alert():
     cluster = SecActivity("ACME", 1, [make_form4("A"), make_form4("B")], 0, [])
     solo = SecActivity("ACME", 1, [make_form4("A")], 0, [])
-    kw = dict(alert_value=100_000, min_price=1.0)
+    kw = {"alert_value": 100_000, "min_price": 1.0}
     assert should_alert(150_000, solo, make_quote(), **kw)
     assert not should_alert(40_000, solo, make_quote(), **kw)
     assert should_alert(40_000, cluster, make_quote(), **kw)

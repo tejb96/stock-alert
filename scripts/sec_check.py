@@ -26,13 +26,18 @@ from common import (
     clip,
     env,
     env_float,
-    env_int,
     fit_embeds,
     format_pct,
     format_usd,
     send_discord,
 )
-from market import YAHOO_QUOTE_PAGE_URL, StockQuote, fetch_stock_quotes, format_price_line, is_tradeable
+from market import (
+    YAHOO_QUOTE_PAGE_URL,
+    StockQuote,
+    fetch_stock_quotes,
+    format_price_line,
+    is_tradeable,
+)
 from sec import (
     FeedEntry,
     Form4,
@@ -43,7 +48,14 @@ from sec import (
     is_notable_8k,
     ticker_activity,
 )
-from state import DIGEST_STATE_FILE, SEC_STATE_FILE, iso, load_json, parse_iso, save_json
+from state import (
+    DIGEST_STATE_FILE,
+    SEC_STATE_FILE,
+    iso,
+    load_json,
+    parse_iso,
+    save_json,
+)
 
 FEED_PAGE_SIZE = 100
 MAX_FEED_PAGES = 10

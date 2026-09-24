@@ -4,7 +4,12 @@ from __future__ import annotations
 
 import json
 
-from research import NewsHeadline, build_research_prompt, news_query, parse_research_json
+from research import (
+    NewsHeadline,
+    build_research_prompt,
+    news_query,
+    parse_research_json,
+)
 
 HEADLINES = [NewsHeadline("Acme wins DoD contract", "https://news.example/a", "Reuters", "snippet")]
 
@@ -17,6 +22,8 @@ def test_parse_research_json_full():
             "fresh": True,
             "priced_in": "partly",
             "risks": ["small cap", "earnings in 9 days", "dilution history", "extra"],
+            "sentiment": "Bearish",
+            "sentiment_reason": "Selloff on guidance cut",
         }
     )
     research = parse_research_json("ACME", content, HEADLINES)
@@ -26,6 +33,8 @@ def test_parse_research_json_full():
     assert research.priced_in == "partly"
     assert research.risks == ["small cap", "earnings in 9 days", "dilution history"]
     assert research.headlines == HEADLINES
+    assert research.sentiment == "bearish"
+    assert research.sentiment_reason == "Selloff on guidance cut"
 
 
 def test_parse_research_json_drops_invalid_enum_values():

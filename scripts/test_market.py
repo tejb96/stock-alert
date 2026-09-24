@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import date
 
 import pytest
@@ -12,9 +13,14 @@ from market import (
     STAGE_EARLY,
     STAGE_LATE,
     STAGE_MOVING,
+    TREND_DOWN,
+    TREND_SIDEWAYS,
+    TREND_UP,
     classify_stage,
+    classify_trend,
     extract_stock_quote,
     format_price_line,
+    format_trend_line,
     is_tradeable,
     parse_nasdaq_earnings,
 )
@@ -130,3 +136,42 @@ def test_parse_nasdaq_earnings():
 def test_parse_nasdaq_earnings_empty_day():
     assert parse_nasdaq_earnings({"data": {"rows": None}}, date(2026, 9, 26)) == []
     assert parse_nasdaq_earnings({"data": None}, date(2026, 9, 26)) == []
+
+
+def test_extract_stock_quote_long_trend_fields():
+    # 250 sessions sliding from 200 to 101 then today's 100: a textbook downtrend.
+    closes = [200.0 - i * (99 / 248) for i in range(249)] + [100.0]
+    quote = extract_stock_quote("ACME", yahoo_payload(price=100.0, closes=closes, volumes=[1000] * 250), now=5000)
+    assert quote.change_1m == pytest.approx((100 / closes[-22] - 1) * 100)
+    assert quote.change_3m == pytest.approx((100 / closes[-64] - 1) * 100)
+    assert quote.sma50 == pytest.approx(sum(closes[-50:]) / 50)
+    assert quote.sma200 == pytest.approx(sum(closes[-200:]) / 200)
+    assert classify_trend(quote) == TREND_DOWN
+
+
+def test_extract_stock_quote_short_history_has_no_trend():
+    quote = extract_stock_quote("ACME", yahoo_payload(), now=5000)
+    assert quote.change_1m is quote.change_3m is quote.sma50 is quote.sma200 is None
+    assert classify_trend(quote) is None
+    assert format_trend_line(quote) == "45% below 52w high"
+
+
+@pytest.mark.parametrize(
+    ("price", "sma50", "sma200", "change_3m", "expected"),
+    [
+        (110, 100, 90, None, TREND_UP),
+        (80, 100, 90, None, TREND_DOWN),
+        (95, 100, 90, None, TREND_SIDEWAYS),
+        (110, 100, None, 12.0, TREND_UP),
+        (90, 100, None, -12.0, TREND_DOWN),
+        (110, 100, None, None, TREND_UP),
+    ],
+)
+def test_classify_trend(price, sma50, sma200, change_3m, expected):
+    quote = replace(make_quote(price=price), sma50=sma50, sma200=sma200, change_3m=change_3m)
+    assert classify_trend(quote) == expected
+
+
+def test_format_trend_line():
+    quote = replace(make_quote(price=6.0), sma50=7.0, sma200=8.0, change_1m=-12.0, change_3m=-28.4)
+    assert format_trend_line(quote) == "📉 **Downtrend** · 1m -12.0% · 3m -28.4% · 37% below 52w high"

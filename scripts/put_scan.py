@@ -4,7 +4,11 @@
 Premium sellers earn the gap between implied volatility (what the put is priced for) and
 realized volatility (what the stock actually does). Picks are ranked by annualized yield
 weighted by that gap, after filtering for liquidity, distance to breakeven and earnings.
-Anchor tickers (stocks you'd be happy to own, e.g. GME) always get a strike ladder.
+Anchor tickers (stocks you'd be happy to own, e.g. GME) get a strike ladder.
+
+Alert-only: posts only when selling puts is unusually well paid — an anchor's implied volatility
+is high against its own past year (IV rank) and a ladder strike pays a good annualized yield, or
+a watchlist put passes every filter. Quiet days post nothing but still record IV history.
 """
 
 from __future__ import annotations
@@ -64,6 +68,10 @@ LADDER_MAX_SPREAD_PCT = 50.0
 PICK_COLOR = 0x2ECC71
 ANCHOR_COLOR = 0x3498DB
 MANAGEMENT_NOTE = "Close at ~50% profit · decide by 21 DTE · only sell puts on stocks you'd hold at breakeven"
+# Until a year of IV history builds up there's no IV rank; fall back to implied vs realized volatility.
+DEFAULT_ALERT_IV_RANK = 50.0
+DEFAULT_ALERT_IV_EDGE = 1.3
+DEFAULT_ALERT_MIN_ANNUALIZED = 30.0
 
 
 @dataclass(frozen=True)
@@ -187,8 +195,10 @@ def warning_lines(scan: TickerScan, pick: PutCandidate | None = None) -> list[st
 def format_pick_lines(pick: PutCandidate) -> list[str]:
     o = pick.option
     lines = [
-        f"🎯 **${pick.premium:.2f}** mid (bid {o.bid:.2f} / ask {o.ask:.2f}) · Δ {abs(o.delta):.2f} · "
-        f"{pick.dte} DTE · OI {o.open_interest:,}",
+        (
+            f"🎯 **${pick.premium:.2f}** mid (bid {o.bid:.2f} / ask {o.ask:.2f}) · Δ {abs(o.delta):.2f} · "
+            f"{pick.dte} DTE · OI {o.open_interest:,}"
+        ),
         f"💰 {pick.yield_pct:.1f}% on {format_usd(pick.capital)} cash · **{pick.annualized_pct:.0f}%/yr**",
     ]
     safety = f"🛡 Breakeven ${pick.breakeven:,.2f} ({pick.cushion_pct:.1f}% below)"
@@ -255,6 +265,35 @@ def build_anchor_embed(scan: TickerScan, rules: PutFilter, *, today: date) -> di
     }
 
 
+def rich_reason(
+    scan: TickerScan,
+    rules: PutFilter,
+    *,
+    today: date,
+    min_iv_rank: float,
+    min_iv_edge: float,
+    min_annualized: float,
+) -> str | None:
+    """Why this anchor's puts are worth selling today, or None if premiums are ordinary."""
+    iv, rv = scan.chain.iv30, scan.history.realized_vol
+    if scan.iv_rank is not None:
+        if scan.iv_rank < min_iv_rank:
+            return None
+        why = f"IV rank {scan.iv_rank:.0f}"
+    elif iv and rv and iv / rv >= min_iv_edge:
+        why = f"IV {iv:.0%} vs realized {rv:.0%} ({iv / rv:.1f}×)"
+    else:
+        return None
+    best = max(
+        (row[4] for row in ladder(scan, rules, today=today) if row[4] is not None),
+        key=lambda p: p.annualized_pct,
+        default=None,
+    )
+    if best is None or best.annualized_pct < min_annualized:
+        return None
+    return f"{scan.ticker}: {why}, up to {best.annualized_pct:.0f}%/yr"
+
+
 def build_payload(
     picks: list[PutCandidate],
     anchors: list[TickerScan],
@@ -262,16 +301,16 @@ def build_payload(
     rules: PutFilter,
     *,
     when: datetime,
-    has_watchlist: bool = True,
+    reasons: list[str] | None = None,
 ) -> dict[str, Any]:
     today = when.date()
-    header = (
-        f"**Put scan** · {when:%Y-%m-%d %H:%M} UTC\n"
+    header = f"**Put scan** · {when:%Y-%m-%d %H:%M} UTC\n"
+    if reasons:
+        header += f"💰 Premiums are rich — {'; '.join(reasons)}\n"
+    header += (
         f"Cash-secured puts, {rules.min_dte}–{rules.max_dte} DTE, Δ {rules.min_delta:.2f}–{rules.max_delta:.2f}, "
         f"no earnings before expiry. {MANAGEMENT_NOTE}."
     )
-    if has_watchlist and not picks:
-        header += "\nNo watchlist put passed the filters today — sitting out is a position too."
     embeds = [build_pick_embed(i, p, scans[p.ticker], today=today) for i, p in enumerate(picks, start=1)]
     embeds += [build_anchor_embed(a, rules, today=today) for a in anchors]
     return {"content": header, "embeds": fit_embeds(embeds[:EMBEDS_PER_MESSAGE])}
@@ -309,13 +348,32 @@ async def run() -> None:
         # Anchors get their own ladder, so they're not repeated as picks.
         watch_scans = [s for t, s in scans.items() if t not in anchors]
         picks = best_picks(watch_scans, rules, today=now.date(), min_edge=min_edge, top_n=top_n)
-        anchor_scans = [scans[t] for t in anchors if t in scans]
-        payload = build_payload(picks, anchor_scans, scans, rules, when=now, has_watchlist=bool(watch_scans))
-
-        if env_bool("DRY_RUN", False):
-            print(json.dumps(payload, indent=1))
+        today = now.date()
+        reasons = {
+            s.ticker: reason
+            for s in (scans[t] for t in anchors if t in scans)
+            if (
+                reason := rich_reason(
+                    s,
+                    rules,
+                    today=today,
+                    min_iv_rank=env_float("CSP_ALERT_IV_RANK", DEFAULT_ALERT_IV_RANK),
+                    min_iv_edge=env_float("CSP_ALERT_IV_EDGE", DEFAULT_ALERT_IV_EDGE),
+                    min_annualized=env_float("CSP_ALERT_MIN_ANNUALIZED", DEFAULT_ALERT_MIN_ANNUALIZED),
+                )
+            )
+        }
+        anchor_scans = [scans[t] for t in anchors if t in reasons]
+        if picks or anchor_scans:
+            payload = build_payload(
+                picks, anchor_scans, scans, rules, when=now, reasons=list(reasons.values())
+            )
+            if env_bool("DRY_RUN", False):
+                print(json.dumps(payload, indent=1))
+            else:
+                await send_discord(client, payload)
         else:
-            await send_discord(client, payload)
+            print("put_scan: premiums ordinary today; nothing posted.")
 
     save_json(state_path, state)
     print(f"put_scan: {len(fetched)}/{len(tickers)} chains, {len(picks)} picks, {len(anchor_scans)} anchors.")

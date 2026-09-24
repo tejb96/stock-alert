@@ -9,6 +9,7 @@ import sys
 import time
 from dataclasses import dataclass
 from datetime import date, timedelta
+from itertools import pairwise
 from typing import Any
 
 import httpx
@@ -32,9 +33,17 @@ STAGE_EARLY = "early"
 STAGE_MOVING = "moving"
 STAGE_LATE = "late"
 
+TREND_UP = "up"
+TREND_DOWN = "down"
+TREND_SIDEWAYS = "sideways"
+TRENDING_DAYS_1M = 21
+TRENDING_DAYS_3M = 63
+
 # Moves are judged against each stock's own typical daily swing (stdev of daily % returns),
 # so a 4% day counts as big for MCD but noise for a small cap.
 MIN_VOLATILITY_SAMPLES = 10
+# ~2 months of daily returns: recent enough to reflect the stock's current temperament.
+VOLATILITY_LOOKBACK_DAYS = 42
 MOVING_SIGMA = 1.5
 LATE_SIGMA = 3.0
 # Price already up this much → the move has likely happened (chasing), whatever the volatility.
@@ -61,6 +70,16 @@ class StockQuote:
     fifty_two_week_high: float | None
     instrument_type: str | None = None
     daily_volatility: float | None = None
+    change_1m: float | None = None
+    change_3m: float | None = None
+    sma50: float | None = None
+    sma200: float | None = None
+
+    @property
+    def from_high_pct(self) -> float | None:
+        if not self.fifty_two_week_high:
+            return None
+        return (self.price / self.fifty_two_week_high - 1) * 100
 
     def sigma_1d(self) -> float | None:
         if self.change_1d is None or not self.daily_volatility:
@@ -126,8 +145,8 @@ def extract_stock_quote(ticker: str, payload: dict[str, Any], *, now: float | No
     change_5d = _pct_change(price, closes[-6]) if len(closes) >= 6 else None
 
     # Exclude the current session so today's move doesn't inflate its own yardstick.
-    history = closes[:-1]
-    returns = [(b / a - 1) * 100 for a, b in zip(history, history[1:]) if a > 0]
+    history = closes[:-1][-VOLATILITY_LOOKBACK_DAYS:]
+    returns = [(b / a - 1) * 100 for a, b in pairwise(history) if a > 0]
     daily_volatility = statistics.stdev(returns) if len(returns) >= MIN_VOLATILITY_SAMPLES else None
 
     rel_volume: float | None = None
@@ -151,7 +170,15 @@ def extract_stock_quote(ticker: str, payload: dict[str, Any], *, now: float | No
         fifty_two_week_high=float(high) if high is not None else None,
         instrument_type=str(instrument_type) if instrument_type else None,
         daily_volatility=daily_volatility,
+        change_1m=_pct_change(price, closes[-TRENDING_DAYS_1M - 1]) if len(closes) > TRENDING_DAYS_1M else None,
+        change_3m=_pct_change(price, closes[-TRENDING_DAYS_3M - 1]) if len(closes) > TRENDING_DAYS_3M else None,
+        sma50=_sma(closes, 50),
+        sma200=_sma(closes, 200),
     )
+
+
+def _sma(closes: list[float], days: int) -> float | None:
+    return sum(closes[-days:]) / days if len(closes) >= days else None
 
 
 def classify_stage(quote: StockQuote) -> str | None:
@@ -175,7 +202,43 @@ def classify_stage(quote: StockQuote) -> str | None:
     return STAGE_EARLY
 
 
-def format_price_line(quote: StockQuote) -> str:
+def classify_trend(quote: StockQuote) -> str | None:
+    """Where the stock sits vs its 50- and 200-day averages: the months-long picture the 5-day stage misses."""
+    if quote.sma50 is None:
+        return None
+    above = [quote.price > quote.sma50]
+    if quote.sma200 is not None:
+        above.append(quote.price > quote.sma200)
+    elif quote.change_3m is not None:
+        above.append(quote.change_3m > 0)
+    if all(above):
+        return TREND_UP
+    if not any(above):
+        return TREND_DOWN
+    return TREND_SIDEWAYS
+
+
+TREND_STYLE = {
+    TREND_UP: ("📈", "Uptrend"),
+    TREND_DOWN: ("📉", "Downtrend"),
+    TREND_SIDEWAYS: ("↔️", "Sideways"),
+}
+
+
+def format_trend_line(quote: StockQuote) -> str | None:
+    trend = classify_trend(quote)
+    parts = [f"{TREND_STYLE[trend][0]} **{TREND_STYLE[trend][1]}**"] if trend else []
+    if quote.change_1m is not None:
+        parts.append(f"1m {format_pct(quote.change_1m)}")
+    if quote.change_3m is not None:
+        parts.append(f"3m {format_pct(quote.change_3m)}")
+    from_high = quote.from_high_pct
+    if from_high is not None:
+        parts.append("at 52w high" if from_high > -1 else f"{abs(from_high):.0f}% below 52w high")
+    return " · ".join(parts) if parts else None
+
+
+def format_price_line(quote: StockQuote, *, show_range: bool = True) -> str:
     day = f"1d {format_pct(quote.change_1d)}"
     z1 = quote.sigma_1d()
     if z1 is not None and abs(z1) >= 1:
@@ -184,7 +247,7 @@ def format_price_line(quote: StockQuote) -> str:
     if quote.rel_volume is not None:
         parts.append(f"RelVol **{quote.rel_volume:.1f}×**")
     line = "💵 " + " · ".join(parts)
-    if quote.fifty_two_week_low is not None and quote.fifty_two_week_high is not None:
+    if show_range and quote.fifty_two_week_low is not None and quote.fifty_two_week_high is not None:
         line += f"\n📊 52w ${quote.fifty_two_week_low:,.2f} – ${quote.fifty_two_week_high:,.2f}"
     return line
 
@@ -196,7 +259,7 @@ def is_tradeable(quote: StockQuote, *, min_price: float) -> bool:
 
 
 async def fetch_stock_quote(client: httpx.AsyncClient, ticker: str) -> StockQuote | None:
-    params = {"interval": "1d", "range": "2mo"}
+    params = {"interval": "1d", "range": "1y"}
     try:
         response = await client.get(YAHOO_CHART_URL.format(symbol=ticker), params=params)
         response.raise_for_status()

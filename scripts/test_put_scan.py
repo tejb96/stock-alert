@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import UTC, date, datetime
 
 from options import Chain, History, PutFilter
@@ -13,6 +14,7 @@ from put_scan import (
     csv_tickers,
     ladder,
     record_iv,
+    rich_reason,
     with_iv_rank,
 )
 from test_options import TODAY, make_put
@@ -87,13 +89,21 @@ def test_build_payload_with_and_without_picks():
     assert "Earnings Nov 3 (40d)" in pick["description"]
     assert payload["embeds"][1]["title"].startswith("⚓ AAA")
 
-    empty = build_payload([], [], {}, PutFilter(), when=NOW)
-    assert "No watchlist put passed the filters" in empty["content"]
-    assert empty["embeds"] == []
-
-    anchors_only = build_payload([], [scan], {"AAA": scan}, PutFilter(), when=NOW, has_watchlist=False)
-    assert "No watchlist put" not in anchors_only["content"]
+    anchors_only = build_payload([], [scan], {"AAA": scan}, PutFilter(), when=NOW, reasons=["AAA: IV rank 80"])
+    assert "💰 Premiums are rich — AAA: IV rank 80" in anchors_only["content"]
     assert anchors_only["embeds"][0]["title"].startswith("⚓ AAA")
+
+
+def test_rich_reason_gates_on_iv_and_yield():
+    scan = make_scan(make_put(22.0, bid=0.45, ask=0.50, delta=-0.22))  # IV30 55% vs realized 40%
+    gate = {"today": TODAY, "min_iv_rank": 50, "min_iv_edge": 1.3, "min_annualized": 10}
+    reason = rich_reason(scan, PutFilter(), **gate)
+    assert reason is not None and reason.startswith("GME: IV 55% vs realized 40% (1.4×), up to ")
+    assert rich_reason(scan, PutFilter(), **{**gate, "min_iv_edge": 1.5}) is None
+    assert rich_reason(scan, PutFilter(), **{**gate, "min_annualized": 500}) is None
+    # Once IV rank exists it decides, whatever implied vs realized says.
+    assert rich_reason(replace(scan, iv_rank=72.0), PutFilter(), **gate).startswith("GME: IV rank 72, up to ")
+    assert rich_reason(replace(scan, iv_rank=30.0), PutFilter(), **gate) is None
 
 
 def test_fund_skips_earnings_line():

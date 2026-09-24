@@ -25,21 +25,21 @@ TODAY = date(2026, 9, 23)
 
 
 def make_form4(owner: str = "Jane Doe", value: float = 100_000, filed: str = "2026-09-21", **kwargs) -> Form4:
-    defaults = dict(
-        accession="0000000000-26-000001",
-        issuer_cik=12345,
-        ticker="ACME",
-        issuer_name="ACME CORP",
-        owner=owner,
-        role="CFO",
-        is_officer=True,
-        is_director=False,
-        is_ten_percent_owner=False,
-        planned=False,
-        filed=filed,
-        buy_shares=value / 4,
-        buy_value=value,
-    )
+    defaults = {
+        "accession": "0000000000-26-000001",
+        "issuer_cik": 12345,
+        "ticker": "ACME",
+        "issuer_name": "ACME CORP",
+        "owner": owner,
+        "role": "CFO",
+        "is_officer": True,
+        "is_director": False,
+        "is_ten_percent_owner": False,
+        "planned": False,
+        "filed": filed,
+        "buy_shares": value / 4,
+        "buy_value": value,
+    }
     defaults.update(kwargs)
     return Form4(**defaults)
 
@@ -173,7 +173,11 @@ def test_activity_line_cluster_and_8k():
 
 def test_activity_line_only_sells_or_nothing():
     sells = SecActivity("ACME", 1, [], sell_value=3_200_000, eight_ks=[])
-    assert format_activity_line(sells, today=TODAY) == "🏛 Insiders: no buys, sold $3.2M (30d)"
+    assert format_activity_line(sells, today=TODAY) == "🏛 Insiders: no buys, sold $3.2M (30d, not pre-scheduled)"
+    planned = SecActivity("ACME", 1, [], sell_value=5_300_000, eight_ks=[], planned_sell_value=5_300_000)
+    assert format_activity_line(planned, today=TODAY).endswith("sold $5.3M (30d, all pre-scheduled 10b5-1 — routine)")
+    partly = SecActivity("ACME", 1, [], sell_value=5_300_000, eight_ks=[], planned_sell_value=4_000_000)
+    assert format_activity_line(partly, today=TODAY).endswith("sold $5.3M (30d, $1.3M of it not pre-scheduled)")
     assert format_activity_line(SecActivity("ACME", 1, [], 0, []), today=TODAY) is None
 
 

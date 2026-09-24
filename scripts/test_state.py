@@ -12,17 +12,20 @@ from state import (
     COOLING_MULTIPLIER,
     AlertRecord,
     Trajectory,
+    WeekSummary,
     apply_history,
     empty_digest_state,
     iso,
     load_json,
     momentum_multiplier,
+    posted_alerts,
     record_run,
     save_json,
     score_alerts,
     scorecard_alerts,
     summarize_by_stage,
     trajectory_for,
+    week_summaries,
 )
 
 NOW = datetime(2026, 9, 23, 12, 37, tzinfo=UTC)
@@ -151,3 +154,42 @@ def test_score_and_summarize():
     # +5% but SPY +2% → still beat the market.
     assert stats[STAGE_LATE].avg_excess == pytest.approx(3.0)
     assert stats[STAGE_LATE].win_rate == 100.0
+
+
+def test_record_run_stores_sentiment_and_alerted():
+    alerts = [AlertRecord("ACME", 4.12, STAGE_EARLY, 12.3, sentiment="bullish", alerted=True)]
+    result = record_run(empty_digest_state(), now=NOW, rows=[], alerts=alerts, spy_price=None, min_mentions=5)
+    assert result["alerts"][0]["sentiment"] == "bullish"
+    assert result["alerts"][0]["alerted"] is True
+
+
+def test_posted_alerts_first_per_ticker():
+    alerts = [
+        {**alert("ACME", 3, 10, STAGE_EARLY, new=False), "alerted": True},
+        {**alert("ACME", 2, 11, STAGE_EARLY, new=False), "alerted": True},
+        alert("QUIET", 3, 10, STAGE_EARLY),
+        {**alert("FRESH", 0.2, 10, STAGE_EARLY), "alerted": True},
+    ]
+    assert [(a["ticker"], a["price"]) for a in posted_alerts(alerts, now=NOW)] == [("ACME", 10)]
+
+
+def test_week_summaries():
+    state = {
+        "snapshots": [
+            snapshot(24 * 9, {"ORCL": 5}, ["ORCL"]),
+            snapshot(48, {"ORCL": 30, "BB": 53}, ["ORCL", "BB"]),
+            snapshot(24, {"ORCL": 40}, ["ORCL"]),
+        ],
+        "alerts": [
+            {"ts": iso(NOW - timedelta(days=9)), "ticker": "ORCL", "price": 100.0},
+            {"ts": iso(NOW - timedelta(hours=48)), "ticker": "ORCL", "price": 140.0, "sentiment": "bearish"},
+            {"ts": iso(NOW - timedelta(hours=48)), "ticker": "BB", "price": 4.0},
+            {"ts": iso(NOW - timedelta(hours=24)), "ticker": "ORCL", "price": 139.0, "alerted": True},
+        ],
+    }
+    weeks = week_summaries(state, now=NOW)
+    assert weeks == [
+        WeekSummary("ORCL", 2, NOW - timedelta(hours=48), 140.0, True, "bearish", 30, 40),
+        WeekSummary("BB", 1, NOW - timedelta(hours=48), 4.0, False, None, 53, 53),
+    ]
+    assert weeks[0].mentions_change == pytest.approx(33.33, abs=0.01)
