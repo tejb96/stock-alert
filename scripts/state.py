@@ -19,6 +19,7 @@ DIGEST_STATE_FILE = "digest.json"
 SEC_STATE_FILE = "sec.json"
 OPTIONS_STATE_FILE = "options.json"
 MACRO_STATE_FILE = "macro.json"
+CONGRESS_STATE_FILE = "congress.json"
 
 SNAPSHOT_RETENTION_DAYS = 14
 ALERT_RETENTION_DAYS = 30
@@ -116,11 +117,67 @@ def apply_history(
 
 
 @dataclass(frozen=True)
+class WeekSummary:
+    """One ticker's week among the tracked picks, for the Sunday recap."""
+
+    ticker: str
+    days: int
+    first_seen: datetime
+    first_price: float | None
+    alerted: bool
+    sentiment: str | None
+    mentions_first: int | None
+    mentions_last: int | None
+
+    @property
+    def mentions_change(self) -> float | None:
+        if not self.mentions_first or self.mentions_last is None:
+            return None
+        return (self.mentions_last / self.mentions_first - 1) * 100
+
+
+def week_summaries(state: dict[str, Any], *, now: datetime, days: int = 7) -> list[WeekSummary]:
+    """Every ticker tracked in the last `days`, most persistent first."""
+    cutoff = now - timedelta(days=days)
+    records: dict[str, list[dict[str, Any]]] = {}
+    for alert in state.get("alerts", []):
+        if parse_iso(alert["ts"]) >= cutoff:
+            records.setdefault(alert["ticker"], []).append(alert)
+    snapshots = [s for s in state.get("snapshots", []) if parse_iso(s["ts"]) >= cutoff]
+
+    summaries: list[WeekSummary] = []
+    for ticker, items in records.items():
+        mentions = [int(s["rows"][ticker][0]) for s in snapshots if ticker in s.get("rows", {})]
+        sentiments = [i.get("sentiment") for i in items if i.get("sentiment")]
+        summaries.append(
+            WeekSummary(
+                ticker=ticker,
+                days=len({parse_iso(i["ts"]).date() for i in items}),
+                first_seen=parse_iso(items[0]["ts"]),
+                first_price=items[0].get("price"),
+                alerted=any(i.get("alerted") for i in items),
+                sentiment=sentiments[-1] if sentiments else None,
+                mentions_first=mentions[0] if mentions else None,
+                mentions_last=mentions[-1] if mentions else None,
+            )
+        )
+    return sorted(summaries, key=lambda w: (w.alerted, w.days, w.mentions_last or 0), reverse=True)
+
+
+def last_run_at(state: dict[str, Any]) -> datetime | None:
+    snapshots = state.get("snapshots", [])
+    return parse_iso(snapshots[-1]["ts"]) if snapshots else None
+
+
+@dataclass(frozen=True)
 class AlertRecord:
     ticker: str
     price: float
     stage: str | None
     score: float
+    sentiment: str | None = None
+    alerted: bool = False
+    """Cleared the alert bar and was posted, as opposed to only being tracked."""
 
 
 def record_run(
@@ -151,6 +208,8 @@ def record_run(
                 "price": round(alert.price, 4),
                 "stage": alert.stage,
                 "score": round(alert.score, 2),
+                "sentiment": alert.sentiment,
+                "alerted": alert.alerted,
                 "spy": round(spy_price, 4) if spy_price else None,
                 # First appearance of a streak; the scorecard judges each streak once, from its start.
                 "new": alert.ticker not in previously_shown,
@@ -196,6 +255,23 @@ def scorecard_alerts(
     return [a for a in alerts if a.get("new") and a.get("price") and earliest <= parse_iso(a["ts"]) <= latest]
 
 
+def posted_alerts(
+    alerts: list[dict[str, Any]],
+    *,
+    now: datetime,
+    window_days: int = 14,
+    min_age_hours: int = 20,
+) -> list[dict[str, Any]]:
+    """Each ticker's first posted alert in the window, old enough to judge: is the alert bar worth it?"""
+    earliest = now - timedelta(days=window_days)
+    latest = now - timedelta(hours=min_age_hours)
+    first: dict[str, dict[str, Any]] = {}
+    for alert in alerts:
+        if alert.get("alerted") and alert.get("price") and earliest <= parse_iso(alert["ts"]) <= latest:
+            first.setdefault(alert["ticker"], alert)
+    return list(first.values())
+
+
 def score_alerts(
     alerts: list[dict[str, Any]],
     prices: dict[str, float],
@@ -214,20 +290,20 @@ def score_alerts(
     return scored
 
 
+def summarize(items: list[ScoredAlert]) -> StageStats:
+    excesses = [i.excess for i in items if i.excess is not None]
+    # A "win" beats the market when we know SPY's move, otherwise just goes up.
+    wins = sum(1 for i in items if (i.excess if i.excess is not None else i.ret) > 0)
+    return StageStats(
+        count=len(items),
+        avg_return=sum(i.ret for i in items) / len(items),
+        avg_excess=sum(excesses) / len(excesses) if excesses else None,
+        win_rate=wins / len(items) * 100,
+    )
+
+
 def summarize_by_stage(scored: list[ScoredAlert]) -> dict[str | None, StageStats]:
     by_stage: dict[str | None, list[ScoredAlert]] = {}
     for item in scored:
         by_stage.setdefault(item.stage, []).append(item)
-
-    summary: dict[str | None, StageStats] = {}
-    for stage, items in by_stage.items():
-        excesses = [i.excess for i in items if i.excess is not None]
-        # A "win" beats the market when we know SPY's move, otherwise just goes up.
-        wins = sum(1 for i in items if (i.excess if i.excess is not None else i.ret) > 0)
-        summary[stage] = StageStats(
-            count=len(items),
-            avg_return=sum(i.ret for i in items) / len(items),
-            avg_excess=sum(excesses) / len(excesses) if excesses else None,
-            win_rate=wins / len(items) * 100,
-        )
-    return summary
+    return {stage: summarize(items) for stage, items in by_stage.items()}

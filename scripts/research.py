@@ -30,6 +30,7 @@ CATALYST_TYPES = (
     "none found",
 )
 PRICED_IN_VALUES = ("no", "partly", "yes", "unclear")
+SENTIMENT_VALUES = ("bullish", "bearish", "mixed", "unclear")
 
 
 @dataclass(frozen=True)
@@ -49,6 +50,8 @@ class Research:
     fresh: bool | None = None
     priced_in: str | None = None
     risks: list[str] = field(default_factory=list)
+    sentiment: str | None = None
+    sentiment_reason: str | None = None
 
 
 def news_query(ticker: str, name: str = "") -> str:
@@ -90,7 +93,9 @@ async def fetch_news_headlines(ticker: str, *, max_results: int, name: str = "")
         if not headlines and name:
             headlines = await asyncio.to_thread(_fetch_news_sync, news_query(ticker), max_results)
         return headlines
-    except Exception as exc:
+    # ddgs is a scraper whose failure modes change between releases; a missing headline must never
+    # sink the whole run, so anything it raises just means "no news".
+    except Exception as exc:  # noqa: BLE001
         print(f"research: news fetch failed for {ticker}: {exc}", file=sys.stderr)
         return []
 
@@ -109,6 +114,10 @@ def build_research_prompt(ticker: str, context: str, headlines: list[NewsHeadlin
         '  "fresh": true if the catalyst news is from the last ~48 hours, false if older\n'
         f'  "priced_in": one of {list(PRICED_IN_VALUES)} — has the price move already reflected the catalyst?\n'
         '  "risks": up to 3 short strings (e.g. dilution, upcoming earnings, low float, pump-and-dump pattern)\n'
+        f'  "sentiment": one of {list(SENTIMENT_VALUES)} — is the news flow driving this buzz good or bad for the '
+        "stock? A crash, lawsuit, downgrade or selloff is bearish even when people are buying the dip\n"
+        '  "sentiment_reason": one short sentence (max 140 chars) on why, e.g. "Down 30% in 3 months on AI '
+        'capex fears; buzz is mostly bagholders and dip-buyers"\n'
         "Use only the data above. Do not invent facts."
     )
     return [
@@ -141,6 +150,8 @@ def parse_research_json(ticker: str, content: str, headlines: list[NewsHeadline]
     fresh = data.get("fresh")
     risks_raw = data.get("risks")
     risks = [str(r).strip() for r in risks_raw if str(r).strip()][:3] if isinstance(risks_raw, list) else []
+    sentiment = str(data.get("sentiment") or "").strip().lower()
+    sentiment_reason = data.get("sentiment_reason")
 
     return Research(
         ticker=ticker,
@@ -150,6 +161,8 @@ def parse_research_json(ticker: str, content: str, headlines: list[NewsHeadline]
         fresh=fresh if isinstance(fresh, bool) else None,
         priced_in=priced_in if priced_in in PRICED_IN_VALUES else None,
         risks=risks,
+        sentiment=sentiment if sentiment in SENTIMENT_VALUES else None,
+        sentiment_reason=str(sentiment_reason).strip() if sentiment_reason else None,
     )
 
 
@@ -178,7 +191,7 @@ async def summarize_with_github_models(
             json={
                 "model": model,
                 "messages": build_research_prompt(ticker, context, headlines),
-                "max_tokens": 350,
+                "max_tokens": 450,
                 "temperature": 0.2,
                 "response_format": {"type": "json_object"},
             },
