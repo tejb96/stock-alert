@@ -5,6 +5,7 @@ from __future__ import annotations
 import math
 import re
 import statistics
+import sys
 from dataclasses import dataclass, replace
 from datetime import date, datetime
 from typing import Any
@@ -15,7 +16,7 @@ from common import NotifyError
 from market import NASDAQ_HEADERS, YAHOO_CHART_URL
 
 # Free, keyless, ~15 min delayed during the session; includes IV and greeks per contract.
-CBOE_OPTIONS_URL = "https://cdn.cboe.com/api/global/delayed_quotes/options/{symbol}.json"
+CBOE_OPTIONS_URL = "https://cdn-api.cboe.com/api/global/delayed_quotes/options/{symbol}.json"
 NASDAQ_EARNINGS_DATE_URL = "https://api.nasdaq.com/api/analyst/{symbol}/earnings-date"
 
 # OSI symbol tail: YYMMDD, C/P, strike × 1000 in 8 digits (the root is the ticker).
@@ -287,10 +288,11 @@ def put_candidates(
 
 async def fetch_chain(client: httpx.AsyncClient, ticker: str) -> Chain | None:
     try:
-        response = await client.get(CBOE_OPTIONS_URL.format(symbol=ticker), timeout=30.0)
+        response = await client.get(CBOE_OPTIONS_URL.format(symbol=ticker), timeout=30.0, follow_redirects=True)
         response.raise_for_status()
         return parse_cboe_chain(ticker, response.json())
-    except (NotifyError, httpx.HTTPError, ValueError):
+    except (NotifyError, httpx.HTTPError, ValueError) as exc:
+        print(f"options: CBOE chain for {ticker} failed: {exc}", file=sys.stderr)
         return None
 
 
