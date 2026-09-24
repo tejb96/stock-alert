@@ -1,2 +1,5 @@
 __pycache__/
 *.py[cod]
+.pytest_cache/
+# Checkout of the `state` branch used by the cron jobs.
+state/

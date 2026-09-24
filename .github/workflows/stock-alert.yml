@@ -6,20 +6,29 @@ on:
     - cron: "37 12 * * 1-5" # pre-market: overnight Reddit growth, before the 9:30 ET open
     - cron: "23 14 * * 1-5" # post-open: opening noise settled, relative volume meaningful
     - cron: "7 20 * * 1-5" # close: final daily volume, what's building for tomorrow
-    - cron: "13 21 * * 0" # Sunday: weekend DD threads before Monday
+    - cron: "13 21 * * 0" # Sunday: weekend DD threads before Monday, plus the weekly scorecard
   workflow_dispatch:
 
 jobs:
   notify:
     runs-on: ubuntu-latest
     permissions:
+      contents: write # push run history to the `state` branch
       models: read
     steps:
       - uses: actions/checkout@v4
 
+      - name: Check out run history
+        uses: actions/checkout@v4
+        with:
+          ref: state
+          path: state
+
       - uses: actions/setup-python@v5
         with:
           python-version: "3.13"
+          cache: pip
+          cache-dependency-path: scripts/requirements.txt
 
       - name: Install dependencies
         run: pip install -r scripts/requirements.txt
@@ -29,10 +38,18 @@ jobs:
         env:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SEC_CONTACT_EMAIL: ${{ secrets.SEC_CONTACT_EMAIL }}
+          STATE_DIR: state
           YAHOO_USER_AGENT: stock_alert-cron/1.0
           MIN_MENTIONS: "5"
           APEWISDOM_PAGES: "3"
           TOP_N: "5"
           MIN_PRICE: "1"
           ENABLE_RESEARCH: "1"
+          RESEARCH_TOP_N: "3"
           RESEARCH_MODEL: "openai/gpt-4o-mini"
+
+      - name: Save run history
+        run: scripts/save_state.sh "digest ${{ github.run_id }}"
+        env:
+          STATE_DIR: state
