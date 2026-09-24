@@ -20,6 +20,7 @@ import sys
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
+from itertools import pairwise
 
 import httpx
 
@@ -142,7 +143,7 @@ def realized_vol(s: Series | None, n: int, *, periods_per_year: int = 252) -> fl
     if s is None or len(s) <= n:
         return None
     window = s.values[-1 - n :]
-    returns = [math.log(b / a) for a, b in zip(window, window[1:]) if a > 0 and b > 0]
+    returns = [math.log(b / a) for a, b in pairwise(window) if a > 0 and b > 0]
     if len(returns) < 2:
         return None
     return statistics.stdev(returns) * math.sqrt(periods_per_year) * 100

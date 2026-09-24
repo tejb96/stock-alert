@@ -5,7 +5,12 @@ from __future__ import annotations
 import pytest
 
 from factories import make_trend
-from reddit import compute_change_24h, compute_trend_score, enrich_and_rank, parse_apewisdom_row
+from reddit import (
+    compute_change_24h,
+    compute_trend_score,
+    enrich_and_rank,
+    parse_apewisdom_row,
+)
 
 
 def test_compute_change_24h():

@@ -7,7 +7,8 @@ import re
 import statistics
 import sys
 from dataclasses import dataclass, replace
-from datetime import date, datetime
+from datetime import UTC, date, datetime
+from itertools import pairwise
 from typing import Any
 
 import httpx
@@ -177,7 +178,7 @@ def parse_osi(symbol: str) -> tuple[date, str, float] | None:
         return None
     raw_date, kind, raw_strike = match.groups()
     try:
-        expiry = datetime.strptime(raw_date, "%y%m%d").date()
+        expiry = datetime.strptime(raw_date, "%y%m%d").replace(tzinfo=UTC).date()
     except ValueError:
         return None
     return expiry, kind, int(raw_strike) / 1000
@@ -218,7 +219,7 @@ def parse_cboe_chain(ticker: str, payload: dict[str, Any]) -> Chain:
 
 
 def compute_history(closes: list[float]) -> History:
-    returns = [math.log(b / a) for a, b in zip(closes, closes[1:]) if a > 0 and b > 0]
+    returns = [math.log(b / a) for a, b in pairwise(closes) if a > 0 and b > 0]
     vols = [
         statistics.stdev(returns[-days:]) * math.sqrt(TRADING_DAYS)
         for days in (RV_SHORT_DAYS, RV_LONG_DAYS)
@@ -245,7 +246,7 @@ def parse_earnings_date(payload: dict[str, Any]) -> date | None:
     if not match:
         return None
     try:
-        return datetime.strptime(match.group(1), "%b %d, %Y").date()
+        return datetime.strptime(match.group(1), "%b %d, %Y").replace(tzinfo=UTC).date()
     except ValueError:
         return None
 
