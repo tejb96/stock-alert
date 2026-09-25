@@ -1,0 +1,699 @@
+{
+ "buys": [
+  {
+   "member": "Richard W. Allen",
+   "ticker": "AMD",
+   "traded": "2026-07-14"
+  },
+  {
+   "member": "Richard W. Allen",
+   "ticker": "AVGO",
+   "traded": "2026-07-14"
+  },
+  {
+   "member": "Richard W. Allen",
+   "ticker": "AVGO",
+   "traded": "2026-08-12"
+  },
+  {
+   "member": "Richard W. Allen",
+   "ticker": "TSM",
+   "traded": "2026-08-12"
+  },
+  {
+   "member": "Ed Case",
+   "ticker": "AAPL",
+   "traded": "2026-08-13"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "ACN",
+   "traded": "2026-07-17"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "AMD",
+   "traded": "2026-07-17"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "ALKS",
+   "traded": "2026-07-30"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "ABCB",
+   "traded": "2026-07-10"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "APP",
+   "traded": "2026-07-17"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "AORT",
+   "traded": "2026-07-16"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "BCPC",
+   "traded": "2026-07-10"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "BCRX",
+   "traded": "2026-07-10"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "COIN",
+   "traded": "2026-07-17"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "COMP",
+   "traded": "2026-07-16"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "CRWD",
+   "traded": "2026-07-17"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "CSW",
+   "traded": "2026-07-16"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "DCO",
+   "traded": "2026-07-10"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "EPAC",
+   "traded": "2026-07-10"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "EPAC",
+   "traded": "2026-07-16"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "FERG",
+   "traded": "2026-07-16"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "GBCI",
+   "traded": "2026-07-21"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "HQY",
+   "traded": "2026-07-10"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "HMN",
+   "traded": "2026-07-10"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "HLI",
+   "traded": "2026-07-16"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "IRT",
+   "traded": "2026-07-10"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "MRVL",
+   "traded": "2026-07-17"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "MSB",
+   "traded": "2026-07-31"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "MSFT",
+   "traded": "2026-07-17"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "MTX",
+   "traded": "2026-07-10"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "NHI",
+   "traded": "2026-07-10"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "NVDA",
+   "traded": "2026-07-17"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "PLTR",
+   "traded": "2026-07-17"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "PRAX",
+   "traded": "2026-07-30"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "SAIL",
+   "traded": "2026-07-21"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "SKWD",
+   "traded": "2026-07-16"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "SKWD",
+   "traded": "2026-07-10"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "SFM",
+   "traded": "2026-07-16"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "SF",
+   "traded": "2026-07-10"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "TTD",
+   "traded": "2026-07-17"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "COCO",
+   "traded": "2026-07-10"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "PCVX",
+   "traded": "2026-07-16"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "WDC",
+   "traded": "2026-07-17"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "AGIO",
+   "traded": "2026-08-20"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "APH",
+   "traded": "2026-08-18"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "APG",
+   "traded": "2026-08-04"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "AORT",
+   "traded": "2026-08-20"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "ATRC",
+   "traded": "2026-08-20"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "BSX",
+   "traded": "2026-08-18"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "KMX",
+   "traded": "2026-08-19"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "CDW",
+   "traded": "2026-08-19"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "CECO",
+   "traded": "2026-08-20"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "CSGP",
+   "traded": "2026-08-19"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "ETN",
+   "traded": "2026-08-27"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "FSV",
+   "traded": "2026-08-19"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "GMED",
+   "traded": "2026-08-19"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "GS",
+   "traded": "2026-08-26"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "HMN",
+   "traded": "2026-08-20"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "HLI",
+   "traded": "2026-08-07"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "PODD",
+   "traded": "2026-08-18"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "IBM",
+   "traded": "2026-08-18"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "INTU",
+   "traded": "2026-08-18"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "MSFT",
+   "traded": "2026-08-18"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "MOG.A",
+   "traded": "2026-08-07"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "NEO",
+   "traded": "2026-08-07"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "PWR",
+   "traded": "2026-08-27"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "SHAK",
+   "traded": "2026-08-11"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "SKHY",
+   "traded": "2026-08-07"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "SNOW",
+   "traded": "2026-08-07"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "TTD",
+   "traded": "2026-08-18"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "TYL",
+   "traded": "2026-08-18"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "WMT",
+   "traded": "2026-08-26"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "WPM",
+   "traded": "2026-08-26"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "WDAY",
+   "traded": "2026-08-18"
+  },
+  {
+   "member": "April McClain Delaney",
+   "ticker": "BWXT",
+   "traded": "2026-08-03"
+  },
+  {
+   "member": "April McClain Delaney",
+   "ticker": "CHRW",
+   "traded": "2026-08-03"
+  },
+  {
+   "member": "April McClain Delaney",
+   "ticker": "CHRW",
+   "traded": "2026-08-14"
+  },
+  {
+   "member": "April McClain Delaney",
+   "ticker": "CHRW",
+   "traded": "2026-08-12"
+  },
+  {
+   "member": "April McClain Delaney",
+   "ticker": "ESE",
+   "traded": "2026-08-24"
+  },
+  {
+   "member": "April McClain Delaney",
+   "ticker": "ESE",
+   "traded": "2026-08-20"
+  },
+  {
+   "member": "April McClain Delaney",
+   "ticker": "ESE",
+   "traded": "2026-08-19"
+  },
+  {
+   "member": "April McClain Delaney",
+   "ticker": "HUBB",
+   "traded": "2026-08-19"
+  },
+  {
+   "member": "April McClain Delaney",
+   "ticker": "HUBB",
+   "traded": "2026-08-18"
+  },
+  {
+   "member": "April McClain Delaney",
+   "ticker": "HUBB",
+   "traded": "2026-08-14"
+  },
+  {
+   "member": "April McClain Delaney",
+   "ticker": "HUBB",
+   "traded": "2026-08-03"
+  },
+  {
+   "member": "April McClain Delaney",
+   "ticker": "FWONK",
+   "traded": "2026-08-07"
+  },
+  {
+   "member": "April McClain Delaney",
+   "ticker": "FWONK",
+   "traded": "2026-08-24"
+  },
+  {
+   "member": "April McClain Delaney",
+   "ticker": "FWONK",
+   "traded": "2026-08-03"
+  },
+  {
+   "member": "April McClain Delaney",
+   "ticker": "LTH",
+   "traded": "2026-08-03"
+  },
+  {
+   "member": "April McClain Delaney",
+   "ticker": "LTH",
+   "traded": "2026-08-24"
+  },
+  {
+   "member": "April McClain Delaney",
+   "ticker": "LTH",
+   "traded": "2026-08-06"
+  },
+  {
+   "member": "April McClain Delaney",
+   "ticker": "LTH",
+   "traded": "2026-08-07"
+  },
+  {
+   "member": "April McClain Delaney",
+   "ticker": "MLM",
+   "traded": "2026-08-19"
+  },
+  {
+   "member": "Lloyd Doggett",
+   "ticker": "PG",
+   "traded": "2026-08-17"
+  },
+  {
+   "member": "Byron Donalds",
+   "ticker": "NFLX",
+   "traded": "2026-08-12"
+  },
+  {
+   "member": "Cleo Fields",
+   "ticker": "AAPL",
+   "traded": "2026-08-13"
+  },
+  {
+   "member": "Scott Scott Franklin",
+   "ticker": "ACN",
+   "traded": "2026-08-26"
+  },
+  {
+   "member": "Scott Scott Franklin",
+   "ticker": "MCD",
+   "traded": "2026-08-26"
+  },
+  {
+   "member": "Scott Scott Franklin",
+   "ticker": "NVO",
+   "traded": "2026-08-26"
+  },
+  {
+   "member": "Scott Scott Franklin",
+   "ticker": "PEP",
+   "traded": "2026-08-26"
+  },
+  {
+   "member": "Josh Gottheimer",
+   "ticker": "AMAT",
+   "traded": "2026-08-06"
+  },
+  {
+   "member": "Josh Gottheimer",
+   "ticker": "MSFT",
+   "traded": "2026-08-14"
+  },
+  {
+   "member": "Josh Gottheimer",
+   "ticker": "QSR",
+   "traded": "2026-08-06"
+  },
+  {
+   "member": "Thomas H. Kean",
+   "ticker": "AMZN",
+   "traded": "2026-07-08"
+  },
+  {
+   "member": "Thomas H. Kean",
+   "ticker": "EQT",
+   "traded": "2026-07-07"
+  },
+  {
+   "member": "Thomas H. Kean",
+   "ticker": "ESAB",
+   "traded": "2026-07-07"
+  },
+  {
+   "member": "Thomas H. Kean",
+   "ticker": "TOST",
+   "traded": "2026-07-08"
+  },
+  {
+   "member": "Thomas H. Kean",
+   "ticker": "LIN",
+   "traded": "2026-08-10"
+  },
+  {
+   "member": "Thomas H. Kean",
+   "ticker": "MTZ",
+   "traded": "2026-08-21"
+  },
+  {
+   "member": "Richard Dean Dr McCormick",
+   "ticker": "BRK.B",
+   "traded": "2026-07-30"
+  },
+  {
+   "member": "John J Mr McGuire",
+   "ticker": "NVDA",
+   "traded": "2026-08-18"
+  },
+  {
+   "member": "Jared Moskowitz",
+   "ticker": "AMAT",
+   "traded": "2026-07-13"
+  },
+  {
+   "member": "Nancy Pelosi",
+   "ticker": "BE",
+   "traded": "2026-07-24"
+  },
+  {
+   "member": "Nancy Pelosi",
+   "ticker": "BE",
+   "traded": "2026-07-28"
+  },
+  {
+   "member": "Nancy Pelosi",
+   "ticker": "INTC",
+   "traded": "2026-07-24"
+  },
+  {
+   "member": "Michael Rulli",
+   "ticker": "EQIX",
+   "traded": "2026-08-07"
+  },
+  {
+   "member": "Maria Elvira Salazar",
+   "ticker": "BRK.B",
+   "traded": "2026-08-07"
+  },
+  {
+   "member": "Maria Elvira Salazar",
+   "ticker": "MRK",
+   "traded": "2026-08-19"
+  },
+  {
+   "member": "Maria Elvira Salazar",
+   "ticker": "MRNA",
+   "traded": "2026-08-19"
+  },
+  {
+   "member": "Maria Elvira Salazar",
+   "ticker": "SPCX",
+   "traded": "2026-08-12"
+  },
+  {
+   "member": "David J. Taylor",
+   "ticker": "GOOGL",
+   "traded": "2026-08-11"
+  },
+  {
+   "member": "David J. Taylor",
+   "ticker": "IBP",
+   "traded": "2026-08-14"
+  },
+  {
+   "member": "David J. Taylor",
+   "ticker": "PG",
+   "traded": "2026-08-11"
+  },
+  {
+   "member": "David J. Taylor",
+   "ticker": "AEP",
+   "traded": "2026-08-26"
+  },
+  {
+   "member": "David J. Taylor",
+   "ticker": "AVGO",
+   "traded": "2026-08-26"
+  },
+  {
+   "member": "David J. Taylor",
+   "ticker": "FITB",
+   "traded": "2026-08-26"
+  },
+  {
+   "member": "David J. Taylor",
+   "ticker": "IBP",
+   "traded": "2026-09-08"
+  },
+  {
+   "member": "David J. Taylor",
+   "ticker": "PG",
+   "traded": "2026-09-08"
+  }
+ ],
+ "seen": {
+  "20033779": "2026-08-13",
+  "20033910": "2026-08-13",
+  "20034898": "2026-08-13",
+  "20035130": "2026-08-14",
+  "20035143": "2026-08-21",
+  "20035175": "2026-08-11",
+  "20035183": "2026-08-13",
+  "20035190": "2026-09-04",
+  "20035191": "2026-08-17",
+  "20035196": "2026-08-12",
+  "20035203": "2026-08-12",
+  "20035204": "2026-08-14",
+  "20035209": "2026-08-12",
+  "20035216": "2026-08-12",
+  "20035235": "2026-08-17",
+  "20035243": "2026-08-27",
+  "20035244": "2026-08-25",
+  "20035260": "2026-08-18",
+  "20035273": "2026-08-18",
+  "20035274": "2026-08-21",
+  "20035275": "2026-08-18",
+  "20035289": "2026-08-20",
+  "20035291": "2026-08-20",
+  "20035293": "2026-08-25",
+  "20035309": "2026-08-25",
+  "20035326": "2026-09-01",
+  "20035345": "2026-09-02",
+  "20035349": "2026-09-01",
+  "20035350": "2026-09-01",
+  "20035365": "2026-09-02",
+  "20035367": "2026-09-02",
+  "20035370": "2026-09-03",
+  "20035390": "2026-09-10",
+  "20035392": "2026-09-05",
+  "20035400": "2026-09-14",
+  "20035401": "2026-09-08",
+  "20035403": "2026-09-08",
+  "20035408": "2026-09-09",
+  "20035410": "2026-09-09",
+  "20035411": "2026-09-09",
+  "20035420": "2026-09-15",
+  "20035431": "2026-09-12",
+  "20035432": "2026-09-14",
+  "20035434": "2026-09-21",
+  "20035444": "2026-09-12",
+  "20035445": "2026-09-12",
+  "20035450": "2026-09-17",
+  "20035455": "2026-09-14",
+  "20035471": "2026-09-17",
+  "20035480": "2026-09-18",
+  "20035489": "2026-09-22",
+  "20035492": "2026-09-22",
+  "20035499": "2026-09-22"
+ }
+}
