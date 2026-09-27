@@ -144,6 +144,61 @@
    "stage": "moving",
    "ticker": "RKLB",
    "ts": "2026-09-25T15:55:20Z"
+  },
+  {
+   "alerted": false,
+   "new": true,
+   "price": 71.23,
+   "score": 33.77,
+   "sentiment": null,
+   "spy": 771.35,
+   "stage": "early",
+   "ticker": "BYD",
+   "ts": "2026-09-27T23:46:27Z"
+  },
+  {
+   "alerted": false,
+   "new": true,
+   "price": 2.57,
+   "score": 14.78,
+   "sentiment": null,
+   "spy": 771.35,
+   "stage": "early",
+   "ticker": "OPEN",
+   "ts": "2026-09-27T23:46:27Z"
+  },
+  {
+   "alerted": false,
+   "new": true,
+   "price": 189.67,
+   "score": 9.55,
+   "sentiment": null,
+   "spy": 771.35,
+   "stage": "early",
+   "ticker": "PLTR",
+   "ts": "2026-09-27T23:46:27Z"
+  },
+  {
+   "alerted": false,
+   "new": true,
+   "price": 35.02,
+   "score": 8.84,
+   "sentiment": null,
+   "spy": 771.35,
+   "stage": "early",
+   "ticker": "IP",
+   "ts": "2026-09-27T23:46:27Z"
+  },
+  {
+   "alerted": false,
+   "new": true,
+   "price": 138.46,
+   "score": 8.78,
+   "sentiment": null,
+   "spy": 771.35,
+   "stage": "early",
+   "ticker": "VST",
+   "ts": "2026-09-27T23:46:27Z"
   }
  ],
  "snapshots": [
@@ -1182,6 +1237,122 @@
     "RKLB"
    ],
    "ts": "2026-09-25T15:55:20Z"
+  },
+  {
+   "rows": {
+    "AMD": [
+     21,
+     5
+    ],
+    "AVGO": [
+     9,
+     12
+    ],
+    "BE": [
+     5,
+     24
+    ],
+    "BYD": [
+     26,
+     3
+    ],
+    "DTE": [
+     14,
+     8
+    ],
+    "IP": [
+     10,
+     10
+    ],
+    "IQ": [
+     5,
+     22
+    ],
+    "IT": [
+     5,
+     21
+    ],
+    "JUST": [
+     7,
+     17
+    ],
+    "META": [
+     17,
+     7
+    ],
+    "MSFT": [
+     24,
+     4
+    ],
+    "MU": [
+     66,
+     1
+    ],
+    "NBIS": [
+     5,
+     25
+    ],
+    "NKE": [
+     7,
+     16
+    ],
+    "NVDA": [
+     17,
+     6
+    ],
+    "OPEN": [
+     6,
+     19
+    ],
+    "PLTR": [
+     9,
+     13
+    ],
+    "QQQ": [
+     12,
+     9
+    ],
+    "SNDK": [
+     8,
+     15
+    ],
+    "SPCX": [
+     8,
+     14
+    ],
+    "SPY": [
+     30,
+     2
+    ],
+    "TP": [
+     5,
+     26
+    ],
+    "TSLA": [
+     6,
+     18
+    ],
+    "VOO": [
+     10,
+     11
+    ],
+    "VST": [
+     5,
+     23
+    ],
+    "YOU": [
+     6,
+     20
+    ]
+   },
+   "shown": [
+    "BYD",
+    "OPEN",
+    "PLTR",
+    "IP",
+    "VST"
+   ],
+   "ts": "2026-09-27T23:46:27Z"
   }
  ]
 }
