@@ -517,16 +517,6 @@
   },
   {
    "member": "Thomas H. Kean",
-   "ticker": "AMZN",
-   "traded": "2026-07-08"
-  },
-  {
-   "member": "Thomas H. Kean",
-   "ticker": "TOST",
-   "traded": "2026-07-08"
-  },
-  {
-   "member": "Thomas H. Kean",
    "ticker": "LIN",
    "traded": "2026-08-10"
   },
@@ -674,6 +664,26 @@
    "member": "Michael Rulli",
    "ticker": "GS",
    "traded": "2026-09-03"
+  },
+  {
+   "member": "Lloyd Doggett",
+   "ticker": "HD",
+   "traded": "2026-09-17"
+  },
+  {
+   "member": "Lloyd Doggett",
+   "ticker": "IBM",
+   "traded": "2026-09-10"
+  },
+  {
+   "member": "Lloyd Doggett",
+   "ticker": "JNJ",
+   "traded": "2026-09-08"
+  },
+  {
+   "member": "Lloyd Doggett",
+   "ticker": "PPG",
+   "traded": "2026-09-11"
   }
  ],
  "seen": {
@@ -734,9 +744,11 @@
   "20035498": "2026-09-30",
   "20035499": "2026-09-22",
   "20035528": "2026-09-27",
+  "20035539": "2026-10-05",
   "20035549": "2026-10-01",
   "20035553": "2026-10-02",
   "20035555": "2026-10-01",
-  "20035558": "2026-10-02"
+  "20035558": "2026-10-02",
+  "20035580": "2026-10-05"
  }
 }
