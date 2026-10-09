@@ -42,11 +42,6 @@
   },
   {
    "member": "Gilbert Cisneros",
-   "ticker": "ABCB",
-   "traded": "2026-07-10"
-  },
-  {
-   "member": "Gilbert Cisneros",
    "ticker": "APP",
    "traded": "2026-07-17"
   },
@@ -54,16 +49,6 @@
    "member": "Gilbert Cisneros",
    "ticker": "AORT",
    "traded": "2026-07-16"
-  },
-  {
-   "member": "Gilbert Cisneros",
-   "ticker": "BCPC",
-   "traded": "2026-07-10"
-  },
-  {
-   "member": "Gilbert Cisneros",
-   "ticker": "BCRX",
-   "traded": "2026-07-10"
   },
   {
    "member": "Gilbert Cisneros",
@@ -87,16 +72,6 @@
   },
   {
    "member": "Gilbert Cisneros",
-   "ticker": "DCO",
-   "traded": "2026-07-10"
-  },
-  {
-   "member": "Gilbert Cisneros",
-   "ticker": "EPAC",
-   "traded": "2026-07-10"
-  },
-  {
-   "member": "Gilbert Cisneros",
    "ticker": "EPAC",
    "traded": "2026-07-16"
   },
@@ -112,23 +87,8 @@
   },
   {
    "member": "Gilbert Cisneros",
-   "ticker": "HQY",
-   "traded": "2026-07-10"
-  },
-  {
-   "member": "Gilbert Cisneros",
-   "ticker": "HMN",
-   "traded": "2026-07-10"
-  },
-  {
-   "member": "Gilbert Cisneros",
    "ticker": "HLI",
    "traded": "2026-07-16"
-  },
-  {
-   "member": "Gilbert Cisneros",
-   "ticker": "IRT",
-   "traded": "2026-07-10"
   },
   {
    "member": "Gilbert Cisneros",
@@ -144,16 +104,6 @@
    "member": "Gilbert Cisneros",
    "ticker": "MSFT",
    "traded": "2026-07-17"
-  },
-  {
-   "member": "Gilbert Cisneros",
-   "ticker": "MTX",
-   "traded": "2026-07-10"
-  },
-  {
-   "member": "Gilbert Cisneros",
-   "ticker": "NHI",
-   "traded": "2026-07-10"
   },
   {
    "member": "Gilbert Cisneros",
@@ -182,28 +132,13 @@
   },
   {
    "member": "Gilbert Cisneros",
-   "ticker": "SKWD",
-   "traded": "2026-07-10"
-  },
-  {
-   "member": "Gilbert Cisneros",
    "ticker": "SFM",
    "traded": "2026-07-16"
   },
   {
    "member": "Gilbert Cisneros",
-   "ticker": "SF",
-   "traded": "2026-07-10"
-  },
-  {
-   "member": "Gilbert Cisneros",
    "ticker": "TTD",
    "traded": "2026-07-17"
-  },
-  {
-   "member": "Gilbert Cisneros",
-   "ticker": "COCO",
-   "traded": "2026-07-10"
   },
   {
    "member": "Gilbert Cisneros",
@@ -684,6 +619,31 @@
    "member": "Lloyd Doggett",
    "ticker": "PPG",
    "traded": "2026-09-11"
+  },
+  {
+   "member": "Maria Elvira Salazar",
+   "ticker": "CVX",
+   "traded": "2026-09-02"
+  },
+  {
+   "member": "Maria Elvira Salazar",
+   "ticker": "GLW",
+   "traded": "2026-09-08"
+  },
+  {
+   "member": "Maria Elvira Salazar",
+   "ticker": "META",
+   "traded": "2026-09-22"
+  },
+  {
+   "member": "Maria Elvira Salazar",
+   "ticker": "OKTA",
+   "traded": "2026-09-04"
+  },
+  {
+   "member": "Maria Elvira Salazar",
+   "ticker": "SNOW",
+   "traded": "2026-09-04"
   }
  ],
  "seen": {
@@ -749,6 +709,8 @@
   "20035553": "2026-10-02",
   "20035555": "2026-10-01",
   "20035558": "2026-10-02",
-  "20035580": "2026-10-05"
+  "20035562": "2026-10-07",
+  "20035580": "2026-10-05",
+  "20035590": "2026-10-07"
  }
 }
