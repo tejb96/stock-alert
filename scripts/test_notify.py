@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import replace
 from datetime import UTC, date, datetime
 
-from common import EMBED_FIELD_VALUE_LIMIT, EMBED_TOTAL_LIMIT, embed_size
+from common import EMBED_TOTAL_LIMIT, embed_size
 from factories import make_quote, make_trend
 from market import STAGE_EARLY, STAGE_LATE, STAGE_MOVING, EarningsEvent
 from notify import (
@@ -14,14 +14,12 @@ from notify import (
     already_ran_today,
     build_alert_payload,
     build_recap_payload,
-    build_research_context,
     build_scorecard_embed,
     build_signal_embed,
     build_signals,
     format_earnings_line,
     format_trajectory_line,
 )
-from research import NewsHeadline, Research
 from sec import SecActivity
 from state import ScoredAlert, StageStats, Trajectory, WeekSummary
 from test_sec import make_form4
@@ -70,53 +68,19 @@ def test_build_signal_embed_new_ticker_wording():
 
 
 def test_build_signal_embed_with_all_context():
-    research = Research(
-        "ACME",
-        [NewsHeadline("Acme wins contract", "https://news.example/a", "Reuters")] * 3,
-        catalyst="DoD contract award.",
-        catalyst_type="contract/partnership",
-        fresh=True,
-        priced_in="no",
-        risks=["small cap", "earnings soon"],
-        sentiment="bearish",
-        sentiment_reason="Down 30% in 3 months; buzz is dip-buyers",
-    )
     sec = SecActivity("ACME", 12345, [make_form4(value=410_000)], 0, [])
     s = signal(
         trajectory=Trajectory(2, [12, 41, 58]),
         sec=sec,
         earnings=EarningsEvent("ACME", date(2026, 9, 25), "after close"),
-        research=research,
     )
     embed = build_signal_embed(1, s, today=TODAY)
     description = embed["description"]
-    assert description.startswith("🐻 **Bearish buzz** — Down 30% in 3 months; buzz is dip-buyers\n🟢 **Early**")
-    assert embed["color"] == 0xE74C3C
+    assert description.startswith("🟢 **Early** (price quiet over the last 5d)")
     assert "🔥 3rd day on the list, still heating up · mentions by day 12 → 41 → 58" in description
     assert "🏛 **CFO Jane Doe bought $410k**" in description
     assert "📅 Earnings in 2d (Fri Sep 25, after close)" in description
-
-    fields = {f["name"]: f["value"] for f in embed["fields"]}
-    assert fields["📰 Catalyst"] == "DoD contract award.\n*contract/partnership · fresh news · priced in: no*"
-    assert fields["⚠️ Risks"] == "• small cap\n• earnings soon"
-    assert fields["Sources"].count("\n") == 1  # two headlines max
-
-
-def test_research_without_ai_shows_only_sources():
-    research = Research("ACME", [NewsHeadline("Headline", "https://x.example", "CNBC")])
-    embed = build_signal_embed(1, signal(research=research), today=TODAY)
-    assert [f["name"] for f in embed["fields"]] == ["Sources"]
-
-
-def test_research_field_values_respect_limit():
-    research = Research(
-        "ACME",
-        [NewsHeadline("h" * 200, "https://news.example/" + "p" * 900, "Src")] * 2,
-        catalyst="x" * 3000,
-        risks=["r" * 600, "r" * 600],
-    )
-    embed = build_signal_embed(1, signal(research=research), today=TODAY)
-    assert all(len(f["value"]) <= EMBED_FIELD_VALUE_LIMIT for f in embed["fields"])
+    assert "fields" not in embed
 
 
 def test_format_trajectory_line_variants():
@@ -135,78 +99,50 @@ def test_format_earnings_line():
     )
 
 
-def bullish(ticker: str = "ACME", **kwargs) -> Signal:
-    return signal(ticker, research=Research(ticker, [], sentiment="bullish", sentiment_reason="Contract win"), **kwargs)
+UPTREND = replace(make_quote(price=5.0), sma50=4.5, sma200=4.0)
+INSIDERS = SecActivity("ACME", 1, [make_form4()], 0, [])
 
 
-def test_alert_reasons_bar():
-    assert alert_reasons(bullish()) == ["volume 4.8× normal"]
+def confirmed(ticker: str = "ACME", **kwargs) -> Signal:
+    return replace(signal(ticker, sec=INSIDERS, **kwargs), quote=replace(UPTREND, ticker=ticker))
+
+
+def test_alert_reasons_needs_all_four():
+    assert alert_reasons(confirmed()) == ["volume 4.8× normal", "insiders buying", "uptrend"]
     # Each gate on its own blocks the alert.
-    assert alert_reasons(signal(research=Research("ACME", [], sentiment="bearish"))) == []
-    assert alert_reasons(bullish(stage=STAGE_MOVING)) == []
-    downtrend = replace(bullish(), quote=replace(make_quote(price=4.0), sma50=5.0, sma200=6.0))
-    assert alert_reasons(downtrend) == []
-    # Bullish and quiet but nothing confirms it.
-    quiet = replace(bullish(), quote=make_quote(rel_volume=1.1))
-    assert alert_reasons(quiet) == []
-    confirmed = replace(
-        quiet,
-        sec=SecActivity("ACME", 1, [make_form4()], 0, []),
-        research=Research("ACME", [], sentiment="bullish", fresh=True, priced_in="no"),
-    )
-    assert alert_reasons(confirmed) == ["insiders buying", "fresh catalyst not priced in"]
-
-
-def test_alert_reasons_without_sentiment_needs_uptrend_and_two_confirmations():
-    uptrend = make_quote(price=5.0)
-    uptrend = replace(uptrend, sma50=4.5, sma200=4.0)
-    insiders = SecActivity("ACME", 1, [make_form4()], 0, [])
-    # No AI read: one confirmation isn't enough...
-    assert alert_reasons(replace(signal(), quote=uptrend)) == []
-    # ...an uptrend with volume and insider buying is.
-    assert alert_reasons(replace(signal(), quote=uptrend, sec=insiders)) == ["volume 4.8× normal", "insiders buying"]
-    # Not in an uptrend (no 50-day average known) → still blocked.
-    assert alert_reasons(signal(sec=insiders)) == []
-    payload = build_alert_payload([replace(signal(), quote=uptrend, sec=insiders)])
-    assert "❔ No AI sentiment read" in payload["embeds"][0]["description"]
+    assert alert_reasons(confirmed(stage=STAGE_MOVING)) == []
+    assert alert_reasons(replace(confirmed(), quote=replace(UPTREND, rel_volume=1.1))) == []
+    assert alert_reasons(replace(confirmed(), sec=None)) == []
+    assert alert_reasons(replace(confirmed(), sec=SecActivity("ACME", 1, [], 0, []))) == []
+    sideways = replace(UPTREND, sma200=6.0)  # above the 50-day, below the 200-day
+    assert alert_reasons(replace(confirmed(), quote=sideways)) == []
+    assert alert_reasons(signal(sec=INSIDERS)) == []  # no 50-day average known
 
 
 def test_build_alert_payload():
-    payload = build_alert_payload([bullish("A"), bullish("B")], when=datetime(2026, 9, 23, 12, 37, tzinfo=UTC))
+    payload = build_alert_payload([confirmed("A"), confirmed("B")], when=datetime(2026, 9, 23, 12, 37, tzinfo=UTC))
     assert payload["content"].startswith("🔔 **Reddit alert** · Wed Sep 23 — 2 picks worth a look")
     assert [e["title"] for e in payload["embeds"]] == ["1. A — Acme Corp", "2. B — Acme Corp"]
     assert payload["embeds"][0]["description"].startswith(
-        "✅ **Confirmed by:** volume 4.8× normal\n🐂 **Bullish buzz** — Contract win"
+        "✅ **Confirmed by:** volume 4.8× normal, insiders buying, uptrend\n🟢 **Early**"
     )
 
 
 def test_build_alert_payload_stays_under_discord_total_limit():
-    research = Research(
-        "X",
-        [NewsHeadline("h" * 100, "https://x.example", "S")] * 2,
-        catalyst="s" * 1000,
-        risks=["r" * 300] * 3,
-        sentiment="bullish",
-    )
-    signals = [Signal(make_trend(f"T{i}"), make_quote(f"T{i}"), STAGE_EARLY, research=research) for i in range(10)]
+    signals = [confirmed(f"T{i}") for i in range(12)]
     payload = build_alert_payload(signals)
     assert sum(embed_size(e) for e in payload["embeds"]) <= EMBED_TOTAL_LIMIT
-    # All cards survive; research is kept on the earliest cards that still fit.
     assert len(payload["embeds"]) == 10
-    with_fields = ["fields" in e for e in payload["embeds"]]
-    assert with_fields[0]
-    assert not with_fields[-1]
-    assert with_fields == sorted(with_fields, reverse=True)
 
 
 def test_build_recap_payload():
     first_seen = datetime(2026, 9, 21, 12, 0, tzinfo=UTC)
     weeks = [
-        WeekSummary("ORCL", 4, first_seen, 140.0, True, "bearish", 30, 40),
-        WeekSummary("BB", 1, first_seen, 4.0, False, None, 53, 48),
+        WeekSummary("ORCL", 4, first_seen, 140.0, True, 30, 40),
+        WeekSummary("BB", 1, first_seen, 4.0, False, 53, 48),
     ]
     quotes = {"ORCL": make_quote("ORCL", price=147.0)}
-    signals = [bullish("META", stage=STAGE_MOVING)]
+    signals = [signal("META", stage=STAGE_MOVING)]
     scorecard = {"title": "📊 Scorecard"}
     payload = build_recap_payload(
         weeks, signals, quotes, when=datetime(2026, 9, 27, 21, 13, tzinfo=UTC), scorecard=scorecard
@@ -214,10 +150,10 @@ def test_build_recap_payload():
     assert payload["content"] == "🗓 **Reddit weekly recap** · week ending Sun Sep 27 — 2 tickers tracked, 1 alert sent"
     week, outlook, card = payload["embeds"]
     assert week["description"].split("\n") == [
-        "🔔 **ORCL** 4 days · 🐻 bearish · mentions 30 → 40 ↗️ · price +5.0% since Mon",
+        "🔔 **ORCL** 4 days · mentions 30 → 40 ↗️ · price +5.0% since Mon",
         "• **BB** 1 day · mentions 53 → 48 ➡️",
     ]
-    assert outlook["description"] == "1. **META** · 🐂 Bullish · 🟡 Moving\n  ↳ Contract win"
+    assert outlook["description"] == "1. **META** · 🟡 Moving"
     assert card == scorecard
 
 
@@ -226,27 +162,10 @@ def test_build_recap_payload_quiet_week():
     assert payload["embeds"] == []
 
 
-def test_build_recap_payload_flags_failed_research_and_hides_unused_legend():
-    weeks = [WeekSummary("BB", 1, datetime(2026, 9, 21, tzinfo=UTC), 4.0, False, None, 53, 48)]
-    payload = build_recap_payload(
-        weeks, [signal()], {}, when=datetime(2026, 9, 27, tzinfo=UTC), scorecard=None, research_down=True
-    )
-    assert "⚠️ AI research failed for every pick" in payload["content"]
+def test_build_recap_payload_hides_unused_legend():
+    weeks = [WeekSummary("BB", 1, datetime(2026, 9, 21, tzinfo=UTC), 4.0, False, 53, 48)]
+    payload = build_recap_payload(weeks, [signal()], {}, when=datetime(2026, 9, 27, tzinfo=UTC), scorecard=None)
     assert payload["embeds"][0]["footer"]["text"] == "days = days in the daily top picks"
-
-
-def test_build_research_context():
-    s = signal(
-        trajectory=Trajectory(1, [20, 58]),
-        sec=SecActivity("ACME", 1, [make_form4(value=410_000)], 0, []),
-        earnings=EarningsEvent("ACME", date(2026, 9, 25), None),
-    )
-    context = build_research_context(s, today=TODAY)
-    assert "6 → 58 mentions in 24h, rank #31 (was #212)" in context
-    assert "relative volume 4.8x, stage Early" in context
-    assert "Mentions across recent runs: 20 → 58" in context
-    assert "SEC filings: CFO Jane Doe bought $410k" in context
-    assert "Earnings in 2d (Fri Sep 25)" in context
 
 
 def test_build_scorecard_embed():

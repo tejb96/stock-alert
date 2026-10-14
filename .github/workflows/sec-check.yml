@@ -1,10 +1,9 @@
 name: SEC insider check
 
 on:
-  schedule:
-    # Every 20 min on odd minutes, 12:13–23:53 UTC on weekdays (≈ 8 AM–8 PM ET in summer, 7 AM–7 PM in winter).
-    # Minutes differ from the digest's so the two never start together.
-    - cron: "13,33,53 12-23 * * 1-5"
+  # Paused: too noisy to be worth reading. Manual runs still work. To turn it back on, restore:
+  # schedule:
+  #   - cron: "13,33,53 12-23 * * 1-5" # every 20 min, ≈ 8 AM–8 PM ET in summer
   workflow_dispatch:
 
 # One run at a time: each pushes run history to the `state` branch.

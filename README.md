@@ -1,14 +1,14 @@
 # Stock Alert
 
-Serverless Discord alerts for early market signals — no hosting required. Every job is **alert-only**: it posts when something needs your attention and stays silent otherwise. Five GitHub Actions cron jobs:
+Serverless Discord alerts for early market signals — no hosting required. Every job is **alert-only** with a deliberately high bar: most days nothing posts at all, so anything that does is worth reading. GitHub Actions cron jobs:
 
-- **Reddit alerts** (checked each weekday pre-market) — silent unless a ticker with **accelerating** Reddit buzz clears the alert bar: bullish buzz, price hasn't reacted yet, not in a downtrend, and confirmed by unusual volume, insider buying or a fresh un-priced catalyst. Plus a **Sunday recap**: the week's tracked picks, what's heading into the new week, and a scorecard.
-- **SEC checker** (every 20 min in market hours, as often as GitHub actually runs it) — silent unless company insiders make meaningful open-market purchases of common stock, or a ticker you've been alerted on files a notable 8-K.
+- **Reddit alerts** (checked each weekday pre-market) — silent unless a ticker with **accelerating** Reddit buzz meets all four conditions: price hasn't reacted yet, an uptrend, unusual volume, and insiders buying. No AI. A weekly recap and scorecard are available on request.
+- **SEC checker** — **paused** (manual runs only): insider purchases and 8-Ks posted too often to be worth reading. Insider buying still feeds the Reddit alert bar.
 - **Put scan** (checked each weekday, mid-morning) — silent unless selling cash-secured puts is unusually well paid: a strike ladder for stocks you're happy to own (GME by default) when their implied volatility is high against its past year, and any watchlist put that passes every filter.
 - **Congress trades** (once each weekday evening) — silent unless newly filed House trade reports contain a purchase that scores high on the signals that matter: leadership or committee chair, a committee that oversees the company's sector, size, long-dated call options, several members buying the same stock, and how quickly it was disclosed.
 - **Market alarms** (hourly in market hours, plus Sunday evening) — silent unless a market-wide **crash alarm** (yen carry unwind, volatility shock, credit/funding/bank stress, rates shock) or a **bottom signal** (capitulation, fear normalizing, credit healing, yen stabilizing) switches on.
 
-None of it is investment advice. The weekly scorecard exists so you can judge which signals actually work before trusting them.
+None of it is investment advice.
 
 ## What you get
 
@@ -16,8 +16,7 @@ None of it is investment advice. The weekly scorecard exists so you can judge wh
 
 ```
 1. ACME — Acme Corp
-✅ Confirmed by: volume 4.8× normal, insiders buying
-🐂 Bullish buzz — DoD contract award; buzz is early buyers, not bagholders
+✅ Confirmed by: volume 4.8× normal, insiders buying, uptrend
 🟢 Early (price quiet over the last 5d)
 💵 $4.12 · 1d +2.1% · 5d +3.0% · RelVol 4.8×
 📈 Uptrend · 1m +12.0% · 3m +31.0% · 57% below 52w high
@@ -25,48 +24,29 @@ None of it is investment advice. The weekly scorecard exists so you can judge wh
 🔥 3rd day on the list, still heating up · mentions by day 12 → 41 → 58
 🏛 CFO Jane Doe bought $410k (30d, latest 2d ago)
 📅 Earnings in 9d (Fri Oct 2, after close)
-📰 Catalyst: DoD contract award announced Tuesday.
-   contract/partnership · fresh news · priced in: no
-⚠️ Risks: small cap · earnings soon
-Sources: …
 ```
 
-Every weekday run ranks the top 5 accelerating tickers and researches them, but only posts the ones that clear the bar:
+Every weekday run ranks the top 5 accelerating tickers, but posts only those that pass **every** gate:
 
 | Gate | Why |
 |------|-----|
-| 🐂 Bullish buzz | Bearish buzz usually follows a drop that has already happened, when puts are already expensive |
 | 🟢 Early | The price hasn't reacted over the last 5 days (relative to the stock's usual swings) |
-| Not 📉 in a downtrend | Buzz on a stock below its 50- and 200-day averages is mostly bagholders and dip-buyers |
-| At least one confirmation | Volume ≥ 1.5× normal, insiders buying, or a fresh catalyst the AI judges not priced in |
+| 📈 Uptrend | Above both its 50- and 200-day averages. Buzz on a falling stock is mostly bagholders and dip-buyers |
+| Volume ≥ 1.5× normal | Real money is trading it, not just talking about it |
+| Insiders buying | Officers or directors bought on the open market in the last 30 days (needs `SEC_CONTACT_EMAIL`) |
 
-The sentiment read comes from Claude (`ANTHROPIC_API_KEY`). Without it, or if every call fails, the bar gets stricter instead of impossible: no sentiment gate, but the pick must be in an 📈 uptrend and confirmed by **both** unusual volume and insider buying. The card says so (❔), the run gets a GitHub Actions warning, and the Sunday recap flags it.
+Reddit mentions alone had no edge: over the first weeks, "Early" picks averaged −2% and trailed SPY. So the bar asks for everything at once, and most weeks nothing posts.
 
-- **Sentiment** — 🐂 bullish / 🐻 bearish / ⚖️ mixed, judged by the AI from the week's headlines and price action. Mention counts alone can't tell a rally from a crash: ApeWisdom has no sentiment, and Reddit/Stocktwits block bots
-- **Stage** — 🟢 **Early** (buzz rising, price quiet over 5 days), 🟡 **Moving** (price already in play), 🔴 **Late / chasing** (big run-up already happened). Only looks back 5 days — check the trend line too
+- **Stage** — 🟢 **Early** (buzz rising, price quiet over 5 days), 🟡 **Moving** (price already in play), 🔴 **Late / chasing** (big run-up already happened)
 - **Price** — 1-day and 5-day change, today's move vs the stock's usual swing, relative volume
 - **Trend** — 📈 up / 📉 down / ↔️ sideways vs the 50- and 200-day averages, 1- and 3-month change, distance from the 52-week high
 - **Reddit** — mentions and rank now vs 24h ago, plus the trajectory across recent days
 - **SEC** — insider buys/sells in the last 30 days (sales flagged as pre-scheduled 10b5-1 or not) and notable 8-Ks in the last 7
 - **Earnings** — if due in the next two weeks
-- **Research** (every pick) — AI summary of the likely catalyst, whether it's fresh, whether it's priced in, and risks
 
-### Sunday recap
+### Weekly recap (on request)
 
-```
-🗓 Reddit weekly recap · week ending Sun Sep 27 — 8 tickers tracked, 1 alert sent
-📋 This week's tracked picks
-🔔 ACME 3 days · 🐂 bullish · mentions 12 → 58 ↗️ · price +9.1% since Tue
-• ORCL 4 days · 🐻 bearish · mentions 30 → 40 ↗️ · price -3.1% since Mon
-• BB 1 day · mentions 53 → 48 ➡️ · price +3.1% since Thu
-👀 Heading into the week
-1. META · 🐂 Bullish · 🟡 Moving · 📈 Uptrend
-📊 Scorecard — picks from the last 14 days
-🔔 Alerts sent: 3 picks · avg +6.0% · vs SPY +4.2% · 67% winners
-🟢 Early: 9 picks · avg +1.2% · vs SPY -0.3% · 44% winners
-```
-
-The recap is where everything that didn't alert shows up — tracked picks that stayed, faded, or were bearish. The scorecard compares **alerts sent** against all tracked picks, so you can tell whether the alert bar is earning its silence.
+Run **Stock alert** manually with `DIGEST_MODE=recap` for the week's tracked picks and a scorecard of how they did against SPY, compared with the alerts actually sent.
 
 ### SEC alerts
 
@@ -159,8 +139,8 @@ Digest (scripts/notify.py)                    SEC checker (scripts/sec_check.py)
   Yahoo      → 2 months of daily bars           Form 4 XML → open-market buys (code P)
   EDGAR      → insider trades, 8-Ks per ticker  EDGAR     → 30-day cluster per ticker
   Nasdaq     → earnings calendar                Yahoo     → price context
-  DuckDuckGo → headlines                        state     → skip filings already processed,
-  Claude API → catalyst JSON                                  watch tickers from Reddit alerts
+                                                state     → skip filings already processed,
+                                                            watch tickers from Reddit alerts
         │                                                │
         └───────────── Discord webhook ──────────────────┘
                  run history → `state` branch
@@ -284,8 +264,7 @@ Deleting a file just resets that history.
    | Secret | Value |
    |--------|-------|
    | `DISCORD_WEBHOOK_URL` | your webhook URL |
-   | `SEC_CONTACT_EMAIL` | an email address SEC can contact — [EDGAR requires it](https://www.sec.gov/os/accessing-edgar-data) in every request's User-Agent. Without it the SEC features are skipped. |
-   | `ANTHROPIC_API_KEY` | a [Claude API key](https://platform.claude.com/settings/keys) for the Reddit catalyst and sentiment research (one short call per researched pick, a few dollars a month). Without it, see the stricter alert bar above. |
+   | `SEC_CONTACT_EMAIL` | an email address SEC can contact — [EDGAR requires it](https://www.sec.gov/os/accessing-edgar-data) in every request's User-Agent. Without it the SEC features are skipped (including the Reddit insider-buying gate, so no Reddit alert can fire). |
 
 3. **Test manually**
    **Actions** → **Stock alert** → **Run workflow**, and the same for **SEC insider check**, **Put scan** and **Congress trades**.
@@ -295,8 +274,7 @@ Deleting a file just resets that history.
    | Job | UTC | ET (summer) | Purpose |
    |-----|-----|-------------|---------|
    | Reddit alerts | Mon–Fri 11:37, backups 12:07–13:07 | 7:37 AM | Pre-market: overnight Reddit growth and filings before the open. Runs once per US day |
-   | Reddit recap + scorecard | Sun 21:13, backups 22:13–23:13 | 5:13 PM | Weekend due-diligence threads before Monday |
-   | SEC check | Mon–Fri :13/:33/:53, 12–23h | 8 AM – 8 PM | New insider buys and watched 8-Ks |
+   | SEC check | paused (manual only) | — | New insider buys and watched 8-Ks |
    | Put scan | Mon–Fri 14:47, backups hourly to 19:47 | 10:47 AM | After the open, once option spreads have tightened. Scans once per market day, not before 9:45 ET |
    | Congress trades | Mon–Fri 22:41 | 6:41 PM | New House trade disclosures |
 
@@ -306,7 +284,6 @@ Deleting a file just resets that history.
 pip install -r scripts/requirements.txt
 export DISCORD_WEBHOOK_URL="https://discord.com/api/webhooks/..."
 export SEC_CONTACT_EMAIL="you@example.com"   # optional: SEC data
-export ANTHROPIC_API_KEY="sk-ant-..."        # optional: AI research
 export STATE_DIR="state"                     # optional: where history is kept (default ./state)
 python scripts/notify.py
 DRY_RUN=1 python scripts/sec_check.py        # print insider/8-K alerts without posting or saving
@@ -315,7 +292,7 @@ DRY_RUN=1 python scripts/macro_check.py      # print market alarms that would fi
 python scripts/macro_check.py --backtest 2018-01-01   # every alert since then, with SPY's return after
 ```
 
-Without `ANTHROPIC_API_KEY`, researched cards still get news sources, just no AI summary. Without `SEC_CONTACT_EMAIL`, cards omit the SEC line and `sec_check.py` exits immediately.
+Without `SEC_CONTACT_EMAIL`, cards omit the SEC line (so nothing clears the Reddit bar) and `sec_check.py` exits immediately.
 
 ### Tests
 
@@ -344,13 +321,9 @@ Set in the workflow `env:` blocks (or export locally):
 | `TOP_N` | `5` | Tickers shown per digest. |
 | `MIN_PRICE` | `1` | Drop stocks priced below this (USD). |
 | `YAHOO_USER_AGENT` | `stock_alert-cron/1.0` | User-Agent for Yahoo Finance and ApeWisdom. |
-| `ENABLE_RESEARCH` | `1` | Set `0` to disable news + AI research. |
-| `RESEARCH_TOP_N` | `TOP_N` | How many top cards get research (and a sentiment read). |
-| `RESEARCH_MODEL` | `claude-opus-5-5` | Claude model for research. |
-| `RESEARCH_NEWS_COUNT` | `5` | Headlines fetched per ticker for model context (2 shown). |
 | `FORCE` | `0` | Reddit alerts: run even if today's run already happened (manual workflow runs set this). |
-| `DIGEST_MODE` | `auto` | `auto` = alerts on weekdays and the recap on Sundays; `alert` or `recap` to force one. |
-| `SCORECARD_DAYS` | `14` | Pick age window for the Sunday scorecard. |
+| `DIGEST_MODE` | `alert` | `recap` posts the weekly recap and scorecard instead of checking for alerts. |
+| `SCORECARD_DAYS` | `14` | Pick age window for the recap's scorecard. |
 | `SEC_ALERT_USD` | `100000` | New insider buying that alerts on its own. |
 | `SEC_MIN_BUY_USD` | `25000` | Smallest purchase considered (alerts only as part of a cluster). |
 | `SEC_MAX_TRADE_AGE_DAYS` | `30` | Skip insider trades older than this when reported. |
@@ -380,13 +353,13 @@ In GitHub Actions, `permissions: contents: write` lets each job push history to 
 ```
 .github/workflows/
   stock-alert.yml     # Digest schedule
-  sec-check.yml       # SEC checker schedule
+  sec-check.yml       # SEC checker (paused; manual runs only)
   put-scan.yml        # Put scan schedule
   macro-check.yml     # Market alarms schedule
   congress-check.yml  # Congress trades schedule
   tests.yml           # Unit tests on push and pull requests
 scripts/
-  notify.py           # Reddit alerts + Sunday recap: rank, enrich, alert bar, post
+  notify.py           # Reddit alerts (+ recap on request): rank, enrich, alert bar, post
   sec_check.py        # SEC checker: scan feeds, filter, post
   put_scan.py         # Put scan: rank puts, anchor ladders, rich-premium gate, post
   macro_check.py      # Market alarms: on/off transitions, post, backtest
@@ -398,17 +371,14 @@ scripts/
   reddit.py           # ApeWisdom fetch + acceleration score
   market.py           # Yahoo quotes, stage, relative volume, Nasdaq earnings
   sec.py              # EDGAR client, Form 4 / 8-K parsing
-  research.py         # DuckDuckGo news + Claude catalyst JSON
   state.py            # Run history, streaks, momentum, scorecard
   common.py           # Env helpers, formatting, Discord delivery
   save_state.sh       # Commit + push the state checkout
   test_*.py           # Unit tests (factories.py, conftest.py helpers)
-  requirements.txt    # httpx, ddgs, pypdf, anthropic
+  requirements.txt    # httpx, pypdf
 ```
 
 ## Requirements
 
 - Python 3.13 (used in CI)
 - [httpx](https://www.python-httpx.org/) for async HTTP
-- [ddgs](https://pypi.org/project/ddgs/) for news headline search
-- [anthropic](https://pypi.org/project/anthropic/) for the Claude API research call

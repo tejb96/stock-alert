@@ -125,7 +125,6 @@ class WeekSummary:
     first_seen: datetime
     first_price: float | None
     alerted: bool
-    sentiment: str | None
     mentions_first: int | None
     mentions_last: int | None
 
@@ -148,7 +147,6 @@ def week_summaries(state: dict[str, Any], *, now: datetime, days: int = 7) -> li
     summaries: list[WeekSummary] = []
     for ticker, items in records.items():
         mentions = [int(s["rows"][ticker][0]) for s in snapshots if ticker in s.get("rows", {})]
-        sentiments = [i.get("sentiment") for i in items if i.get("sentiment")]
         summaries.append(
             WeekSummary(
                 ticker=ticker,
@@ -156,7 +154,6 @@ def week_summaries(state: dict[str, Any], *, now: datetime, days: int = 7) -> li
                 first_seen=parse_iso(items[0]["ts"]),
                 first_price=items[0].get("price"),
                 alerted=any(i.get("alerted") for i in items),
-                sentiment=sentiments[-1] if sentiments else None,
                 mentions_first=mentions[0] if mentions else None,
                 mentions_last=mentions[-1] if mentions else None,
             )
@@ -175,7 +172,6 @@ class AlertRecord:
     price: float
     stage: str | None
     score: float
-    sentiment: str | None = None
     alerted: bool = False
     """Cleared the alert bar and was posted, as opposed to only being tracked."""
 
@@ -208,7 +204,6 @@ def record_run(
                 "price": round(alert.price, 4),
                 "stage": alert.stage,
                 "score": round(alert.score, 2),
-                "sentiment": alert.sentiment,
                 "alerted": alert.alerted,
                 "spy": round(spy_price, 4) if spy_price else None,
                 # First appearance of a streak; the scorecard judges each streak once, from its start.
