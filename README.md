@@ -4,7 +4,7 @@ Serverless Discord alerts for early market signals — no hosting required. Ever
 
 - **Reddit alerts** (checked each weekday pre-market) — silent unless a ticker with **accelerating** Reddit buzz meets all four conditions: price hasn't reacted yet, an uptrend, unusual volume, and insiders buying. No AI. A weekly recap and scorecard are available on request.
 - **SEC checker** — **paused** (manual runs only): insider purchases and 8-Ks posted too often to be worth reading. Insider buying still feeds the Reddit alert bar.
-- **Put scan** (checked each weekday, mid-morning) — silent unless selling cash-secured puts is unusually well paid: a strike ladder for stocks you're happy to own (GME by default) when their implied volatility is high against its past year, and any watchlist put that passes every filter.
+- **Put scan** — **paused** (manual runs only). When on: silent unless selling cash-secured puts is unusually well paid: a strike ladder for stocks you're happy to own (GME by default) when their implied volatility is high against its past year, and any watchlist put that passes every filter.
 - **Congress trades** (once each weekday evening) — silent unless newly filed House trade reports contain a purchase that scores high on the signals that matter: leadership or committee chair, a committee that oversees the company's sector, size, long-dated call options, several members buying the same stock, and how quickly it was disclosed.
 - **Market alarms** (hourly in market hours, plus Sunday evening) — silent unless a market-wide **crash alarm** (yen carry unwind, volatility shock, credit/funding/bank stress, rates shock) or a **bottom signal** (capitulation, fear normalizing, credit healing, yen stabilizing) switches on.
 
@@ -275,7 +275,7 @@ Deleting a file just resets that history.
    |-----|-----|-------------|---------|
    | Reddit alerts | Mon–Fri 11:37, backups 12:07–13:07 | 7:37 AM | Pre-market: overnight Reddit growth and filings before the open. Runs once per US day |
    | SEC check | paused (manual only) | — | New insider buys and watched 8-Ks |
-   | Put scan | Mon–Fri 14:47, backups hourly to 19:47 | 10:47 AM | After the open, once option spreads have tightened. Scans once per market day, not before 9:45 ET |
+   | Put scan | paused (manual only); was Mon–Fri 14:47, backups hourly to 19:47 | 10:47 AM | After the open, once option spreads have tightened. Scans once per market day, not before 9:45 ET |
    | Congress trades | Mon–Fri 22:41 | 6:41 PM | New House trade disclosures |
 
 ## Local development

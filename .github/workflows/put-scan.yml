@@ -1,12 +1,10 @@
 name: Put scan
 
 on:
-  schedule:
-    # 14:47 UTC ≈ 10:47 ET in summer (9:47 in winter): after the opening auction, once option spreads have tightened.
-    # GitHub drops or delays most scheduled runs, so later slots are backups: put_scan.py scans once
-    # per market day, so the first run after 9:45 ET does the work and the rest exit.
-    # Alert-only: posts only when premiums are rich; every scan still records IV history for IV rank.
-    - cron: "47 14-19 * * 1-5"
+  # Paused: no GME put alerts for now. Manual runs still work. To turn it back on, restore:
+  # schedule:
+  #   # 14:47 UTC ≈ 10:47 ET in summer, with hourly backups; put_scan.py scans once per market day.
+  #   - cron: "47 14-19 * * 1-5"
   workflow_dispatch:
 
 # One run at a time: each pushes run history to the `state` branch.
