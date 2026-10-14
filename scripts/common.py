@@ -47,6 +47,8 @@ def env_bool(name: str, default: bool) -> bool:
 def format_pct(value: float | None) -> str:
     if value is None:
         return "n/a"
+    # Round first so tiny negatives print as +0.0%, not -0.0%.
+    value = round(value, 1) + 0.0
     sign = "+" if value >= 0 else ""
     return f"{sign}{value:.1f}%"
 

@@ -143,7 +143,6 @@ def test_alert_reasons_bar():
     assert alert_reasons(bullish()) == ["volume 4.8× normal"]
     # Each gate on its own blocks the alert.
     assert alert_reasons(signal(research=Research("ACME", [], sentiment="bearish"))) == []
-    assert alert_reasons(signal()) == []  # no sentiment read
     assert alert_reasons(bullish(stage=STAGE_MOVING)) == []
     downtrend = replace(bullish(), quote=replace(make_quote(price=4.0), sma50=5.0, sma200=6.0))
     assert alert_reasons(downtrend) == []
@@ -156,6 +155,20 @@ def test_alert_reasons_bar():
         research=Research("ACME", [], sentiment="bullish", fresh=True, priced_in="no"),
     )
     assert alert_reasons(confirmed) == ["insiders buying", "fresh catalyst not priced in"]
+
+
+def test_alert_reasons_without_sentiment_needs_uptrend_and_two_confirmations():
+    uptrend = make_quote(price=5.0)
+    uptrend = replace(uptrend, sma50=4.5, sma200=4.0)
+    insiders = SecActivity("ACME", 1, [make_form4()], 0, [])
+    # No AI read: one confirmation isn't enough...
+    assert alert_reasons(replace(signal(), quote=uptrend)) == []
+    # ...an uptrend with volume and insider buying is.
+    assert alert_reasons(replace(signal(), quote=uptrend, sec=insiders)) == ["volume 4.8× normal", "insiders buying"]
+    # Not in an uptrend (no 50-day average known) → still blocked.
+    assert alert_reasons(signal(sec=insiders)) == []
+    payload = build_alert_payload([replace(signal(), quote=uptrend, sec=insiders)])
+    assert "❔ No AI sentiment read" in payload["embeds"][0]["description"]
 
 
 def test_build_alert_payload():
@@ -213,6 +226,15 @@ def test_build_recap_payload_quiet_week():
     assert payload["embeds"] == []
 
 
+def test_build_recap_payload_flags_failed_research_and_hides_unused_legend():
+    weeks = [WeekSummary("BB", 1, datetime(2026, 9, 21, tzinfo=UTC), 4.0, False, None, 53, 48)]
+    payload = build_recap_payload(
+        weeks, [signal()], {}, when=datetime(2026, 9, 27, tzinfo=UTC), scorecard=None, research_down=True
+    )
+    assert "⚠️ AI research failed for every pick" in payload["content"]
+    assert payload["embeds"][0]["footer"]["text"] == "days = days in the daily top picks"
+
+
 def test_build_research_context():
     s = signal(
         trajectory=Trajectory(1, [20, 58]),
@@ -238,8 +260,8 @@ def test_build_scorecard_embed():
     embed = build_scorecard_embed(stats, scored, window_days=14, posted=posted)
     description = embed["description"]
     assert embed["title"] == "📊 Scorecard — picks from the last 14 days"
-    assert description.startswith("🔔 **Alerts sent**: 1 picks · avg +12.0% · vs SPY +10.0% · 100% winners")
-    assert "🟢 **Early**: 4 picks · avg +6.2% · vs SPY +4.1% · 75% winners" in description
+    assert description.startswith("🔔 **Alerts sent**: 1 picks · avg +12.0% · +10.0% vs SPY · 100% winners")
+    assert "🟢 **Early**: 4 picks · avg +6.2% · +4.1% vs SPY · 75% winners" in description
     assert "🔴 **Late / chasing**: 2 picks · avg -8.0% · 0% winners" in description
     assert description.index("Early") < description.index("Late")
     assert "Best: **WIN** +31.0% (Sep 14)" in description

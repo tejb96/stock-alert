@@ -18,7 +18,6 @@ from dataclasses import dataclass, replace
 from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any
-from zoneinfo import ZoneInfo
 
 import httpx
 
@@ -37,10 +36,12 @@ from common import (
     send_discord,
 )
 from market import (
+    MARKET_TZ,
     STAGE_EARLY,
     STAGE_LATE,
     STAGE_MOVING,
     TREND_DOWN,
+    TREND_UP,
     YAHOO_QUOTE_PAGE_URL,
     EarningsEvent,
     StockQuote,
@@ -53,7 +54,7 @@ from market import (
     is_tradeable,
 )
 from reddit import TrendRow, enrich_and_rank, fetch_apewisdom
-from research import Research, research_ticker
+from research import Research, research_available, research_ticker
 from sec import SecActivity, SecClient, format_activity_line, ticker_activity
 from state import (
     DIGEST_STATE_FILE,
@@ -81,7 +82,6 @@ from state import (
 CANDIDATE_MULTIPLIER = 3
 BENCHMARK = "SPY"
 RECAP_WEEKDAY = 6  # Sunday
-MARKET_TZ = ZoneInfo("America/New_York")
 # Mention moves smaller than this read as "steady".
 STEADY_MENTIONS_PCT = 10.0
 # Trading volume at least this multiple of normal confirms the buzz is moving real money.
@@ -108,6 +108,10 @@ SENTIMENT_STYLE = {
     "unclear": ("❔", "Unclear", 0x95A5A6),
 }
 SCORECARD_COLOR = 0x3498DB
+RESEARCH_DOWN_NOTE = (
+    "⚠️ AI research failed for every pick (check ANTHROPIC_API_KEY): without a sentiment read, "
+    "only picks in an uptrend confirmed by both volume and insider buying can alert."
+)
 RECAP_COLOR = 0x5865F2
 
 
@@ -273,10 +277,13 @@ def alert_reasons(signal: Signal) -> list[str]:
     """What confirms a pick is worth acting on today; empty when it doesn't clear the bar.
 
     The bar: bullish buzz, a price that hasn't reacted yet, not in a downtrend, and at least one
-    confirmation that real money or real news is behind the chatter."""
-    if signal.sentiment != "bullish" or signal.stage != STAGE_EARLY:
+    confirmation that real money or real news is behind the chatter. Without an AI sentiment read
+    (research failed or isn't configured) the bar is stricter instead of impossible: an uptrend
+    and both volume and insider buying must confirm it."""
+    if signal.sentiment not in ("bullish", None) or signal.stage != STAGE_EARLY:
         return []
-    if classify_trend(signal.quote) == TREND_DOWN:
+    trend = classify_trend(signal.quote)
+    if trend == TREND_DOWN:
         return []
     reasons: list[str] = []
     rel_volume = signal.quote.rel_volume
@@ -287,6 +294,8 @@ def alert_reasons(signal: Signal) -> list[str]:
     research = signal.research
     if research is not None and research.fresh and research.priced_in == "no":
         reasons.append("fresh catalyst not priced in")
+    if signal.sentiment is None and (trend != TREND_UP or len(reasons) < 2):
+        return []
     return reasons
 
 
@@ -306,9 +315,10 @@ def build_alert_payload(signals: list[Signal], *, when: datetime | None = None) 
     embeds = []
     for index, signal in enumerate(signals, start=1):
         embed = build_signal_embed(index, signal, today=ts.date())
-        embed["description"] = clip(
-            f"✅ **Confirmed by:** {', '.join(alert_reasons(signal))}\n{embed['description']}", EMBED_DESCRIPTION_LIMIT
-        )
+        header = f"✅ **Confirmed by:** {', '.join(alert_reasons(signal))}"
+        if signal.sentiment is None:
+            header += "\n❔ No AI sentiment read — passed the stricter bar (uptrend, volume and insiders)"
+        embed["description"] = clip(f"{header}\n{embed['description']}", EMBED_DESCRIPTION_LIMIT)
         embeds.append(embed)
     return {"content": content, "embeds": fit_embeds(embeds)}
 
@@ -354,6 +364,7 @@ def build_recap_payload(
     *,
     when: datetime,
     scorecard: dict[str, Any] | None,
+    research_down: bool = False,
 ) -> dict[str, Any]:
     ts = _utc(when)
     alerted = sum(1 for w in weeks if w.alerted)
@@ -361,6 +372,8 @@ def build_recap_payload(
         f"🗓 **Reddit weekly recap** · week ending {ts.astimezone(MARKET_TZ):%a %b %-d} — "
         f"{len(weeks)} ticker{'s' if len(weeks) != 1 else ''} tracked, {alerted} alert{'s' if alerted != 1 else ''} sent"
     )
+    if research_down:
+        content += f"\n{RESEARCH_DOWN_NOTE}"
     embeds: list[dict[str, Any]] = []
     if weeks:
         lines = [format_week_line(w, quotes.get(w.ticker)) for w in weeks[:RECAP_MAX_TICKERS]]
@@ -371,7 +384,10 @@ def build_recap_payload(
                 "title": "📋 This week's tracked picks",
                 "color": RECAP_COLOR,
                 "description": clip("\n".join(lines), EMBED_DESCRIPTION_LIMIT),
-                "footer": {"text": "🔔 = cleared the alert bar and was posted · days = days in the daily top picks"},
+                "footer": {
+                    "text": ("🔔 = cleared the alert bar and was posted · " if alerted else "")
+                    + "days = days in the daily top picks"
+                },
             }
         )
     if signals:
@@ -420,7 +436,7 @@ def build_research_context(signal: Signal, *, today: date) -> str:
 
 
 def _stats_line(label: str, s: StageStats) -> str:
-    vs_spy = f" · vs {BENCHMARK} {format_pct(s.avg_excess)}" if s.avg_excess is not None else ""
+    vs_spy = f" · {format_pct(s.avg_excess)} vs {BENCHMARK}" if s.avg_excess is not None else ""
     return f"{label}: {s.count} picks · avg {format_pct(s.avg_return)}{vs_spy} · {s.win_rate:.0f}% winners"
 
 
@@ -508,14 +524,12 @@ async def enrich_signals(
         for s, activity in zip(signals, activities)
     ]
 
-    # Sequential: DuckDuckGo rate-limits bursts, and GitHub Models' free tier is per-minute.
+    # Sequential: DuckDuckGo rate-limits bursts.
     enriched: list[Signal] = []
     for index, signal in enumerate(signals):
         if index < research_top_n:
             context = build_research_context(signal, today=today)
-            research = await research_ticker(
-                client, signal.trend.ticker, context, max_news=max_news, name=signal.trend.name
-            )
+            research = await research_ticker(signal.trend.ticker, context, max_news=max_news, name=signal.trend.name)
             signal = replace(signal, research=research)
         enriched.append(signal)
     return enriched
@@ -554,13 +568,21 @@ async def run() -> None:
             client, signals, today=now.date(), research_top_n=research_top_n, max_news=max_news
         )
         alerts = [s for s in signals if alert_reasons(s)]
+        researched = signals[:research_top_n]
+        research_down = bool(researched) and all(s.sentiment is None for s in researched)
+        if research_down:
+            why = "ANTHROPIC_API_KEY is not set" if not research_available() else "every Claude API call failed"
+            # A GitHub Actions annotation, so a silently degraded alert bar shows up on the run page.
+            print(f"::warning::AI research unavailable ({why}); the alert bar falls back to price and volume only.")
 
         payload: dict[str, Any] | None = None
         if recap:
             scorecard = await build_scorecard(
                 client, state.get("alerts", []), now=now, window_days=window_days, spy_now=spy.price if spy else None
             )
-            payload = build_recap_payload(weeks, signals, quotes, when=now, scorecard=scorecard)
+            payload = build_recap_payload(
+                weeks, signals, quotes, when=now, scorecard=scorecard, research_down=research_down
+            )
         elif alerts:
             payload = build_alert_payload(alerts, when=now)
 

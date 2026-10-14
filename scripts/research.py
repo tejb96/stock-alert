@@ -1,4 +1,4 @@
-"""News headlines (DuckDuckGo) and structured catalyst summaries (GitHub Models)."""
+"""News headlines (DuckDuckGo) and structured catalyst summaries (Claude API)."""
 
 from __future__ import annotations
 
@@ -9,11 +9,11 @@ import sys
 from dataclasses import dataclass, field
 from typing import Any
 
-import httpx
+import anthropic
 
 from common import env
 
-GITHUB_MODELS_URL_DEFAULT = "https://models.github.ai/inference/chat/completions"
+DEFAULT_RESEARCH_MODEL = "claude-opus-5-5"
 
 CATALYST_TYPES = (
     "earnings",
@@ -166,57 +166,74 @@ def parse_research_json(ticker: str, content: str, headlines: list[NewsHeadline]
     )
 
 
-async def summarize_with_github_models(
-    client: httpx.AsyncClient,
-    ticker: str,
-    context: str,
-    headlines: list[NewsHeadline],
-) -> Research | None:
-    token = os.environ.get("GITHUB_TOKEN", "").strip()
-    if not token:
+RESEARCH_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "catalyst": {"type": "string"},
+        "catalyst_type": {"type": "string", "enum": list(CATALYST_TYPES)},
+        "fresh": {"type": "boolean"},
+        "priced_in": {"type": "string", "enum": list(PRICED_IN_VALUES)},
+        "risks": {"type": "array", "items": {"type": "string"}},
+        "sentiment": {"type": "string", "enum": list(SENTIMENT_VALUES)},
+        "sentiment_reason": {"type": "string"},
+    },
+    "required": ["catalyst", "catalyst_type", "fresh", "priced_in", "risks", "sentiment", "sentiment_reason"],
+    "additionalProperties": False,
+}
+# Re-runs a request the model's safety classifiers decline on Anthropic's recommended fallback model.
+FALLBACK_BETA = "server-side-fallback-2026-07-01"
+
+_anthropic_client: anthropic.AsyncAnthropic | None = None
+
+
+def _client() -> anthropic.AsyncAnthropic:
+    global _anthropic_client
+    if _anthropic_client is None:
+        _anthropic_client = anthropic.AsyncAnthropic(timeout=90.0, max_retries=3)
+    return _anthropic_client
+
+
+def research_available() -> bool:
+    return bool(os.environ.get("ANTHROPIC_API_KEY", "").strip())
+
+
+async def summarize_with_claude(ticker: str, context: str, headlines: list[NewsHeadline]) -> Research | None:
+    """Catalyst, sentiment and risks as schema-checked JSON. None when unconfigured or the call fails."""
+    if not research_available():
         return None
 
-    model = env("RESEARCH_MODEL", "openai/gpt-4o-mini")
-    url = env("GITHUB_MODELS_URL", GITHUB_MODELS_URL_DEFAULT)
-
+    messages = build_research_prompt(ticker, context, headlines)
     try:
-        response = await client.post(
-            url,
-            headers={
-                "Authorization": f"Bearer {token}",
-                "Content-Type": "application/json",
-                "Accept": "application/vnd.github+json",
-                "X-GitHub-Api-Version": "2022-11-28",
-            },
-            json={
-                "model": model,
-                "messages": build_research_prompt(ticker, context, headlines),
-                "max_tokens": 450,
-                "temperature": 0.2,
-                "response_format": {"type": "json_object"},
-            },
-            timeout=30.0,
+        response = await _client().beta.messages.create(
+            model=env("RESEARCH_MODEL", DEFAULT_RESEARCH_MODEL),
+            max_tokens=4000,
+            system=messages[0]["content"],
+            messages=[{"role": "user", "content": messages[1]["content"]}],
+            output_config={"effort": "low", "format": {"type": "json_schema", "schema": RESEARCH_SCHEMA}},
+            betas=[FALLBACK_BETA],
+            fallbacks="default",
         )
-        if response.status_code >= 400:
-            print(
-                f"research: GitHub Models failed for {ticker}: {response.status_code} {response.text}",
-                file=sys.stderr,
-            )
-            return None
-
-        choices = response.json().get("choices")
-        content = choices[0].get("message", {}).get("content") if choices else None
-        if not content or not isinstance(content, str):
-            print(f"research: GitHub Models returned no content for {ticker}", file=sys.stderr)
-            return None
-        return parse_research_json(ticker, content, headlines)
-    except (httpx.HTTPError, KeyError, TypeError, ValueError, IndexError) as exc:
-        print(f"research: GitHub Models error for {ticker}: {exc}", file=sys.stderr)
+    except (anthropic.AuthenticationError, anthropic.PermissionDeniedError) as exc:
+        print(f"research: Claude API rejected the key for {ticker}: {exc.message}", file=sys.stderr)
         return None
+    except anthropic.APIStatusError as exc:
+        print(f"research: Claude API error for {ticker}: {exc.status_code} {exc.message}", file=sys.stderr)
+        return None
+    except anthropic.APIConnectionError as exc:
+        print(f"research: Claude API unreachable for {ticker}: {exc!r}", file=sys.stderr)
+        return None
+
+    if response.stop_reason == "refusal":
+        print(f"research: Claude declined to research {ticker}", file=sys.stderr)
+        return None
+    text = next((block.text for block in response.content if block.type == "text"), None)
+    if not text:
+        print(f"research: Claude returned no text for {ticker} (stop: {response.stop_reason})", file=sys.stderr)
+        return None
+    return parse_research_json(ticker, text, headlines)
 
 
 async def research_ticker(
-    client: httpx.AsyncClient,
     ticker: str,
     context: str,
     *,
@@ -224,7 +241,7 @@ async def research_ticker(
     name: str = "",
 ) -> Research | None:
     headlines = await fetch_news_headlines(ticker, max_results=max_news, name=name)
-    summary = await summarize_with_github_models(client, ticker, context, headlines)
+    summary = await summarize_with_claude(ticker, context, headlines)
     if summary is not None:
         return summary
     return Research(ticker, headlines) if headlines else None

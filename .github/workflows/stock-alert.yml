@@ -3,29 +3,37 @@ name: Stock alert
 on:
   schedule:
     # Weekdays: alert-only — posts only picks that clear the alert bar, usually nothing.
-    # Sunday: the weekly recap and scorecard. Odd minutes dodge the :00/:15/:30 GitHub cron rush;
-    # GitHub can still start runs hours late, and notify.py never runs twice in one US day.
+    # Sunday: the weekly recap and scorecard. Odd minutes dodge the :00/:15/:30 GitHub cron rush.
+    # GitHub drops or delays most scheduled runs (hours late is common), so each slot has backups;
+    # notify.py runs once per US day, so the first one to start does the work and the rest exit.
     # Times are UTC (ET = UTC-4 in summer, UTC-5 in winter).
     - cron: "37 11 * * 1-5" # pre-market (~7:37 ET): overnight Reddit growth, before the 9:30 ET open
+    - cron: "7,37 12 * * 1-5" # backups, still before the open
+    - cron: "7 13 * * 1-5"
     - cron: "13 21 * * 0" # Sunday: weekend DD threads before Monday
+    - cron: "13 22,23 * * 0"
   workflow_dispatch:
+
+# One run at a time: each pushes run history to the `state` branch.
+concurrency:
+  group: stock-alert
+  cancel-in-progress: false
 
 jobs:
   notify:
     runs-on: ubuntu-latest
     permissions:
       contents: write # push run history to the `state` branch
-      models: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Check out run history
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           ref: state
           path: state
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.13"
           cache: pip
@@ -38,7 +46,9 @@ jobs:
         run: python scripts/notify.py
         env:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Claude API key for catalyst and sentiment research. Without it the alert bar falls back to
+          # price, volume and insider buying only (see alert_reasons in notify.py).
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           SEC_CONTACT_EMAIL: ${{ secrets.SEC_CONTACT_EMAIL }}
           STATE_DIR: state
           # A manual run always runs, even if today's already did.
@@ -50,7 +60,7 @@ jobs:
           MIN_PRICE: "1"
           ENABLE_RESEARCH: "1"
           RESEARCH_TOP_N: "5"
-          RESEARCH_MODEL: "openai/gpt-4o-mini"
+          RESEARCH_MODEL: "claude-opus-5-5"
 
       - name: Save run history
         run: scripts/save_state.sh "digest ${{ github.run_id }}"
