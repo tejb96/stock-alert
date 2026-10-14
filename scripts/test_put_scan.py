@@ -13,8 +13,11 @@ from put_scan import (
     build_payload,
     csv_tickers,
     ladder,
+    format_earnings_line,
     record_iv,
     rich_reason,
+    scan_due,
+    should_repost,
     with_iv_rank,
 )
 from test_options import TODAY, make_put
@@ -113,3 +116,42 @@ def test_fund_skips_earnings_line():
     picks = best_picks([scan], PutFilter(), today=TODAY, min_edge=1.1, top_n=5)
     payload = build_payload(picks, [], {"XLF": scan}, PutFilter(), when=NOW)
     assert "earnings" not in payload["embeds"][0]["description"].lower()
+
+
+def test_record_iv_keeps_other_state():
+    state = {"iv30": {}, "posted": {"GME": {"date": "2026-09-20", "iv30": 0.6}}, "last_scan": "2026-09-23"}
+    updated = record_iv(state, [make_scan()], today=TODAY)
+    assert updated["posted"] == state["posted"]
+    assert updated["last_scan"] == "2026-09-23"
+
+
+def test_should_repost_waits_out_cooldown_unless_iv_jumps():
+    posted = {"GME": {"date": "2026-09-21", "iv30": 0.61}}
+    assert should_repost("KO", 0.30, posted, today=TODAY)  # never posted
+    assert not should_repost("GME", 0.62, posted, today=TODAY)  # 3 days later, same IV
+    assert should_repost("GME", 0.67, posted, today=TODAY)  # IV up 6 vol points
+    assert should_repost("GME", 0.62, posted, today=date(2026, 9, 28))  # cooldown over
+    assert should_repost("GME", 0.62, {"GME": {"date": "garbage"}}, today=TODAY)
+
+
+def test_scan_due_once_per_market_day():
+    assert scan_due({}, NOW) is None  # 10:47 ET
+    assert scan_due({"last_scan": "2026-09-24"}, NOW) == "already scanned today"
+    assert scan_due({"last_scan": "2026-09-23"}, NOW) is None
+    assert scan_due({}, datetime(2026, 9, 24, 13, 40, tzinfo=UTC)).startswith("market not open yet")  # 9:40 ET
+    assert scan_due({}, datetime(2026, 9, 26, 15, 0, tzinfo=UTC)).startswith("market not open yet")  # Saturday
+
+
+def test_estimated_earnings_skips_a_margin_before_it():
+    scan = replace(make_scan(), earnings=date(2026, 12, 8), earnings_estimated=True)
+    assert scan.earnings_cutoff == date(2026, 12, 1)
+    line = format_earnings_line(scan, today=TODAY)
+    assert line.startswith("📅 Earnings expected ~Dec 8 (75d, estimated from past reports)")
+    assert make_scan(earnings=date(2026, 12, 8)).earnings_cutoff == date(2026, 12, 8)
+
+
+def test_build_payload_anchor_only_header_skips_pick_rules():
+    scan = make_scan(make_put(21.5, bid=0.40, ask=0.44, delta=-0.22))
+    payload = build_payload([], [scan], {"GME": scan}, PutFilter(), when=NOW, reasons=["GME: IV rank 80"])
+    assert payload["content"].startswith("**Put scan** · Thu Sep 24 10:47 ET\n💰 Premiums are rich")
+    assert "Δ 0.15" not in payload["content"]

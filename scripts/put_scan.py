@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import sys
 from dataclasses import dataclass, replace
 from datetime import UTC, date, datetime, timedelta
@@ -37,7 +38,7 @@ from common import (
     format_usd,
     send_discord,
 )
-from market import YAHOO_QUOTE_PAGE_URL
+from market import MARKET_TZ, YAHOO_QUOTE_PAGE_URL
 from options import (
     Chain,
     History,
@@ -49,6 +50,7 @@ from options import (
     iv_rank,
     put_candidates,
 )
+from sec import SecClient, estimated_earnings
 from state import OPTIONS_STATE_FILE, load_json, save_json
 
 DEFAULT_ANCHORS = "GME"
@@ -72,6 +74,14 @@ MANAGEMENT_NOTE = "Close at ~50% profit · decide by 21 DTE · only sell puts on
 DEFAULT_ALERT_IV_RANK = 50.0
 DEFAULT_ALERT_IV_EDGE = 1.3
 DEFAULT_ALERT_MIN_ANNUALIZED = 30.0
+# Once an anchor's ladder is posted, stay quiet while premiums stay rich unless implied volatility
+# climbs this much more (in vol points), or the cooldown passes and the ladder is worth a refresh.
+DEFAULT_REPOST_DAYS = 7
+DEFAULT_REPOST_IV_JUMP = 0.05
+# An estimated earnings date can be off by a few days, so expiries this close before it are skipped too.
+ESTIMATED_EARNINGS_MARGIN = timedelta(days=7)
+# Opening quotes are wide and stale; wait for spreads to settle (New York time).
+EARLIEST_SCAN = (9, 45)
 
 
 @dataclass(frozen=True)
@@ -80,6 +90,14 @@ class TickerScan:
     history: History
     earnings: date | None
     iv_rank: float | None = None
+    earnings_estimated: bool = False
+
+    @property
+    def earnings_cutoff(self) -> date | None:
+        """The date expiries must come before: the earnings date, with a margin when it's a guess."""
+        if self.earnings is not None and self.earnings_estimated:
+            return self.earnings - ESTIMATED_EARNINGS_MARGIN
+        return self.earnings
 
     @property
     def ticker(self) -> str:
@@ -119,7 +137,7 @@ def record_iv(state: dict[str, Any], scans: list[TickerScan], *, today: date) ->
     for scan in scans:
         if scan.chain.iv30:
             history.setdefault(scan.ticker, {})[today.isoformat()] = round(scan.chain.iv30, 4)
-    return {"iv30": {t: s for t, s in history.items() if s}}
+    return {**state, "iv30": {t: s for t, s in history.items() if s}}
 
 
 def with_iv_rank(scan: TickerScan, state: dict[str, Any]) -> TickerScan:
@@ -133,7 +151,7 @@ def best_picks(scans: list[TickerScan], rules: PutFilter, *, today: date, min_ed
     """Best put per ticker, keeping only tickers whose puts are priced above their realized moves."""
     picks: list[PutCandidate] = []
     for scan in scans:
-        candidates = put_candidates(scan.chain, scan.history, today=today, earnings=scan.earnings, rules=rules)
+        candidates = put_candidates(scan.chain, scan.history, today=today, earnings=scan.earnings_cutoff, rules=rules)
         if candidates and candidates[0].edge is not None and candidates[0].edge >= min_edge:
             picks.append(candidates[0])
     return sorted(picks, key=lambda c: c.score, reverse=True)[:top_n]
@@ -146,7 +164,7 @@ def ladder(scan: TickerScan, rules: PutFilter, *, today: date) -> list[tuple[str
     rows = []
     for label, emoji, low, high in LADDER_BANDS:
         found = put_candidates(
-            scan.chain, scan.history, today=today, earnings=scan.earnings, rules=relaxed, delta_range=(low, high)
+            scan.chain, scan.history, today=today, earnings=scan.earnings_cutoff, rules=relaxed, delta_range=(low, high)
         )
         rows.append((label, emoji, low, high, found[0] if found else None))
     return rows
@@ -179,7 +197,13 @@ def format_earnings_line(scan: TickerScan, *, today: date) -> str | None:
         return None
     if scan.earnings is None or scan.earnings < today:
         return "📅 Next earnings date unknown — check before selling"
-    return f"📅 Earnings {_day(scan.earnings)} ({(scan.earnings - today).days}d) — expiries after it are skipped"
+    days = (scan.earnings - today).days
+    if scan.earnings_estimated:
+        return (
+            f"📅 Earnings expected ~{_day(scan.earnings)} ({days}d, estimated from past reports) — "
+            "expiries from a week before it are skipped"
+        )
+    return f"📅 Earnings {_day(scan.earnings)} ({days}d) — expiries after it are skipped"
 
 
 def warning_lines(scan: TickerScan, pick: PutCandidate | None = None) -> list[str]:
@@ -304,26 +328,62 @@ def build_payload(
     reasons: list[str] | None = None,
 ) -> dict[str, Any]:
     today = when.date()
-    header = f"**Put scan** · {when:%Y-%m-%d %H:%M} UTC\n"
+    header = f"**Put scan** · {when.astimezone(MARKET_TZ):%a %b %-d %H:%M} ET\n"
     if reasons:
         header += f"💰 Premiums are rich — {'; '.join(reasons)}\n"
-    header += (
-        f"Cash-secured puts, {rules.min_dte}–{rules.max_dte} DTE, Δ {rules.min_delta:.2f}–{rules.max_delta:.2f}, "
-        f"no earnings before expiry. {MANAGEMENT_NOTE}."
-    )
+    if picks:
+        header += (
+            f"Cash-secured puts, {rules.min_dte}–{rules.max_dte} DTE, Δ {rules.min_delta:.2f}–{rules.max_delta:.2f}, "
+            f"no earnings before expiry. {MANAGEMENT_NOTE}."
+        )
+    else:
+        header += f"Cash-secured puts, {rules.min_dte}–{rules.max_dte} DTE, no earnings before expiry. {MANAGEMENT_NOTE}."
     embeds = [build_pick_embed(i, p, scans[p.ticker], today=today) for i, p in enumerate(picks, start=1)]
     embeds += [build_anchor_embed(a, rules, today=today) for a in anchors]
     return {"content": header, "embeds": fit_embeds(embeds[:EMBEDS_PER_MESSAGE])}
 
 
-async def scan_ticker(client: httpx.AsyncClient, ticker: str, gate: asyncio.Semaphore) -> TickerScan | None:
+async def scan_ticker(
+    client: httpx.AsyncClient, ticker: str, gate: asyncio.Semaphore, *, sec: SecClient | None, today: date
+) -> TickerScan | None:
     async with gate:
         chain = await fetch_chain(client, ticker)
         if chain is None:
             print(f"put_scan: no option chain for {ticker}", file=sys.stderr)
             return None
         history, earnings = await asyncio.gather(fetch_history(client, ticker), fetch_earnings_date(client, ticker))
+        # Nasdaq's calendar only lists a date once the company announces it, often 2–3 weeks ahead.
+        if earnings is None and sec is not None and not history.is_fund:
+            estimate = await estimated_earnings(sec, ticker, today=today)
+            if estimate is not None:
+                return TickerScan(chain, history, estimate, earnings_estimated=True)
     return TickerScan(chain, history, earnings)
+
+
+def should_repost(ticker: str, iv30: float | None, posted: dict[str, Any], *, today: date) -> bool:
+    """Rich premiums last for weeks; re-post a ladder only after a cooldown or a further jump in IV."""
+    last = posted.get(ticker)
+    if not isinstance(last, dict):
+        return True
+    try:
+        days = (today - date.fromisoformat(str(last["date"]))).days
+    except (KeyError, ValueError):
+        return True
+    if days >= env_int("CSP_REPOST_DAYS", DEFAULT_REPOST_DAYS):
+        return True
+    last_iv = last.get("iv30")
+    jump = env_float("CSP_REPOST_IV_JUMP", DEFAULT_REPOST_IV_JUMP)
+    return bool(iv30 and isinstance(last_iv, (int, float)) and iv30 >= last_iv + jump)
+
+
+def scan_due(state: dict[str, Any], now: datetime) -> str | None:
+    """Why not to scan now (already scanned today, or before the market settles), or None to go ahead."""
+    local = now.astimezone(MARKET_TZ)
+    if local.weekday() >= 5 or (local.hour, local.minute) < EARLIEST_SCAN:
+        return f"market not open yet ({local:%a %H:%M} ET)"
+    if state.get("last_scan") == local.date().isoformat():
+        return "already scanned today"
+    return None
 
 
 async def run() -> None:
@@ -336,14 +396,24 @@ async def run() -> None:
     user_agent = env("YAHOO_USER_AGENT", "stock_alert-cron/1.0")
 
     now = datetime.now(UTC)
+    state = load_json(state_path, {})
+    # GitHub skips and delays scheduled runs, so the workflow fires several times a day; the first
+    # one after the market settles does the scan.
+    not_due = scan_due(state, now)
+    if not_due and not env_bool("FORCE", False):
+        print(f"put_scan: skipping, {not_due}; set FORCE=1 to scan anyway.")
+        return
     tickers = list(dict.fromkeys([*anchors, *watchlist]))
     gate = asyncio.Semaphore(FETCH_CONCURRENCY)
+    contact_email = os.environ.get("SEC_CONTACT_EMAIL", "").strip()
     async with httpx.AsyncClient(timeout=20.0, headers={"User-Agent": user_agent}) as client:
-        fetched = [s for s in await asyncio.gather(*[scan_ticker(client, t, gate) for t in tickers]) if s]
+        sec = SecClient(client, contact_email) if contact_email else None
+        scanned = await asyncio.gather(*[scan_ticker(client, t, gate, sec=sec, today=now.date()) for t in tickers])
+        fetched = [s for s in scanned if s]
         if not fetched:
             raise NotifyError("no option chains could be fetched")
 
-        state = record_iv(load_json(state_path, {}), fetched, today=now.date())
+        state = record_iv(state, fetched, today=now.date())
         scans = {s.ticker: with_iv_rank(s, state) for s in fetched}
         # Anchors get their own ladder, so they're not repeated as picks.
         watch_scans = [s for t, s in scans.items() if t not in anchors]
@@ -363,6 +433,11 @@ async def run() -> None:
                 )
             )
         }
+        posted: dict[str, Any] = dict(state.get("posted") or {})
+        quiet = [t for t in reasons if not should_repost(t, scans[t].chain.iv30, posted, today=today)]
+        if quiet:
+            print(f"put_scan: still rich but posted recently, staying quiet: {', '.join(quiet)}")
+        reasons = {t: r for t, r in reasons.items() if t not in quiet}
         anchor_scans = [scans[t] for t in anchors if t in reasons]
         if picks or anchor_scans:
             payload = build_payload(
@@ -374,7 +449,16 @@ async def run() -> None:
                 await send_discord(client, payload)
         else:
             print("put_scan: premiums ordinary today; nothing posted.")
+        if not env_bool("DRY_RUN", False):
+            for scan in anchor_scans:
+                posted[scan.ticker] = {"date": today.isoformat(), "iv30": scan.chain.iv30}
 
+    if env_bool("DRY_RUN", False):
+        return
+    state["posted"] = {
+        t: p for t, p in posted.items() if isinstance(p, dict) and str(p.get("date", "")) >= (today - timedelta(days=60)).isoformat()
+    }
+    state["last_scan"] = now.astimezone(MARKET_TZ).date().isoformat()
     save_json(state_path, state)
     print(f"put_scan: {len(fetched)}/{len(tickers)} chains, {len(picks)} picks, {len(anchor_scans)} anchors.")
 
