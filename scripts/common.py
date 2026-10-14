@@ -47,6 +47,8 @@ def env_bool(name: str, default: bool) -> bool:
 def format_pct(value: float | None) -> str:
     if value is None:
         return "n/a"
+    # Round first so tiny negatives print as +0.0%, not -0.0%.
+    value = round(value, 1) + 0.0
     sign = "+" if value >= 0 else ""
     return f"{sign}{value:.1f}%"
 
@@ -76,8 +78,8 @@ def embed_size(embed: dict[str, Any]) -> int:
 def fit_embeds(embeds: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Keep embeds in order within Discord's count and combined-size limits.
 
-    Every card's core (title, description) is placed first; fields (research, sources) are then
-    added in order while they fit, so heavy research on early cards never crowds out later cards.
+    Every card's core (title, description) is placed first; fields are then added in order
+    while they fit, so heavy fields on early cards never crowd out later cards.
     """
     bare = [{k: v for k, v in e.items() if k != "fields"} for e in embeds[:EMBEDS_PER_MESSAGE]]
     kept: list[dict[str, Any]] = []

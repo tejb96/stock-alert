@@ -11,11 +11,13 @@ from dataclasses import dataclass
 from datetime import date, timedelta
 from itertools import pairwise
 from typing import Any
+from zoneinfo import ZoneInfo
 
 import httpx
 
 from common import NotifyError, format_pct
 
+MARKET_TZ = ZoneInfo("America/New_York")
 YAHOO_CHART_URL = "https://query1.finance.yahoo.com/v8/finance/chart/{symbol}"
 YAHOO_QUOTE_PAGE_URL = "https://finance.yahoo.com/quote/{symbol}"
 NASDAQ_EARNINGS_URL = "https://api.nasdaq.com/api/calendar/earnings"

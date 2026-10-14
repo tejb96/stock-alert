@@ -1,14 +1,14 @@
 # Stock Alert
 
-Serverless Discord alerts for early market signals — no hosting required. Every job is **alert-only**: it posts when something needs your attention and stays silent otherwise. Five GitHub Actions cron jobs:
+Serverless Discord alerts for early market signals — no hosting required. Every job is **alert-only** with a deliberately high bar: most days nothing posts at all, so anything that does is worth reading. GitHub Actions cron jobs:
 
-- **Reddit alerts** (checked each weekday pre-market) — silent unless a ticker with **accelerating** Reddit buzz clears the alert bar: bullish buzz, price hasn't reacted yet, not in a downtrend, and confirmed by unusual volume, insider buying or a fresh un-priced catalyst. Plus a **Sunday recap**: the week's tracked picks, what's heading into the new week, and a scorecard.
-- **SEC checker** (every 20 min in market hours) — silent unless company insiders make meaningful open-market purchases, or a ticker you've been alerted on files a notable 8-K.
-- **Put scan** (checked each weekday, mid-morning) — silent unless selling cash-secured puts is unusually well paid: a strike ladder for stocks you're happy to own (GME by default) when their implied volatility is high against its past year, and any watchlist put that passes every filter.
+- **Reddit alerts** (checked each weekday pre-market) — silent unless a ticker with **accelerating** Reddit buzz meets all four conditions: price hasn't reacted yet, an uptrend, unusual volume, and insiders buying. No AI. A weekly recap and scorecard are available on request.
+- **SEC checker** — **paused** (manual runs only): insider purchases and 8-Ks posted too often to be worth reading. Insider buying still feeds the Reddit alert bar.
+- **Put scan** — **paused** (manual runs only). When on: silent unless selling cash-secured puts is unusually well paid: a strike ladder for stocks you're happy to own (GME by default) when their implied volatility is high against its past year, and any watchlist put that passes every filter.
 - **Congress trades** (once each weekday evening) — silent unless newly filed House trade reports contain a purchase that scores high on the signals that matter: leadership or committee chair, a committee that oversees the company's sector, size, long-dated call options, several members buying the same stock, and how quickly it was disclosed.
 - **Market alarms** (hourly in market hours, plus Sunday evening) — silent unless a market-wide **crash alarm** (yen carry unwind, volatility shock, credit/funding/bank stress, rates shock) or a **bottom signal** (capitulation, fear normalizing, credit healing, yen stabilizing) switches on.
 
-None of it is investment advice. The weekly scorecard exists so you can judge which signals actually work before trusting them.
+None of it is investment advice.
 
 ## What you get
 
@@ -16,8 +16,7 @@ None of it is investment advice. The weekly scorecard exists so you can judge wh
 
 ```
 1. ACME — Acme Corp
-✅ Confirmed by: volume 4.8× normal, insiders buying
-🐂 Bullish buzz — DoD contract award; buzz is early buyers, not bagholders
+✅ Confirmed by: volume 4.8× normal, insiders buying, uptrend
 🟢 Early (price quiet over the last 5d)
 💵 $4.12 · 1d +2.1% · 5d +3.0% · RelVol 4.8×
 📈 Uptrend · 1m +12.0% · 3m +31.0% · 57% below 52w high
@@ -25,48 +24,29 @@ None of it is investment advice. The weekly scorecard exists so you can judge wh
 🔥 3rd day on the list, still heating up · mentions by day 12 → 41 → 58
 🏛 CFO Jane Doe bought $410k (30d, latest 2d ago)
 📅 Earnings in 9d (Fri Oct 2, after close)
-📰 Catalyst: DoD contract award announced Tuesday.
-   contract/partnership · fresh news · priced in: no
-⚠️ Risks: small cap · earnings soon
-Sources: …
 ```
 
-Every weekday run ranks the top 5 accelerating tickers and researches them, but only posts the ones that clear the bar:
+Every weekday run ranks the top 5 accelerating tickers, but posts only those that pass **every** gate:
 
 | Gate | Why |
 |------|-----|
-| 🐂 Bullish buzz | Bearish buzz usually follows a drop that has already happened, when puts are already expensive |
 | 🟢 Early | The price hasn't reacted over the last 5 days (relative to the stock's usual swings) |
-| Not 📉 in a downtrend | Buzz on a stock below its 50- and 200-day averages is mostly bagholders and dip-buyers |
-| At least one confirmation | Volume ≥ 1.5× normal, insiders buying, or a fresh catalyst the AI judges not priced in |
+| 📈 Uptrend | Above both its 50- and 200-day averages. Buzz on a falling stock is mostly bagholders and dip-buyers |
+| Volume ≥ 1.5× normal | Real money is trading it, not just talking about it |
+| Insiders buying | Officers or directors bought on the open market in the last 30 days (needs `SEC_CONTACT_EMAIL`) |
 
-The bar depends on the AI sentiment read: if GitHub Models is unavailable, nothing alerts that day.
+Reddit mentions alone had no edge: over the first weeks, "Early" picks averaged −2% and trailed SPY. So the bar asks for everything at once, and most weeks nothing posts.
 
-- **Sentiment** — 🐂 bullish / 🐻 bearish / ⚖️ mixed, judged by the AI from the week's headlines and price action. Mention counts alone can't tell a rally from a crash: ApeWisdom has no sentiment, and Reddit/Stocktwits block bots
-- **Stage** — 🟢 **Early** (buzz rising, price quiet over 5 days), 🟡 **Moving** (price already in play), 🔴 **Late / chasing** (big run-up already happened). Only looks back 5 days — check the trend line too
+- **Stage** — 🟢 **Early** (buzz rising, price quiet over 5 days), 🟡 **Moving** (price already in play), 🔴 **Late / chasing** (big run-up already happened)
 - **Price** — 1-day and 5-day change, today's move vs the stock's usual swing, relative volume
 - **Trend** — 📈 up / 📉 down / ↔️ sideways vs the 50- and 200-day averages, 1- and 3-month change, distance from the 52-week high
 - **Reddit** — mentions and rank now vs 24h ago, plus the trajectory across recent days
 - **SEC** — insider buys/sells in the last 30 days (sales flagged as pre-scheduled 10b5-1 or not) and notable 8-Ks in the last 7
 - **Earnings** — if due in the next two weeks
-- **Research** (every pick) — AI summary of the likely catalyst, whether it's fresh, whether it's priced in, and risks
 
-### Sunday recap
+### Weekly recap (on request)
 
-```
-🗓 Reddit weekly recap · week ending Sun Sep 27 — 8 tickers tracked, 1 alert sent
-📋 This week's tracked picks
-🔔 ACME 3 days · 🐂 bullish · mentions 12 → 58 ↗️ · price +9.1% since Tue
-• ORCL 4 days · 🐻 bearish · mentions 30 → 40 ↗️ · price -3.1% since Mon
-• BB 1 day · mentions 53 → 48 ➡️ · price +3.1% since Thu
-👀 Heading into the week
-1. META · 🐂 Bullish · 🟡 Moving · 📈 Uptrend
-📊 Scorecard — picks from the last 14 days
-🔔 Alerts sent: 3 picks · avg +6.0% · vs SPY +4.2% · 67% winners
-🟢 Early: 9 picks · avg +1.2% · vs SPY -0.3% · 44% winners
-```
-
-The recap is where everything that didn't alert shows up — tracked picks that stayed, faded, or were bearish. The scorecard compares **alerts sent** against all tracked picks, so you can tell whether the alert bar is earning its silence.
+Run **Stock alert** manually with `DIGEST_MODE=recap` for the week's tracked picks and a scorecard of how they did against SPY, compared with the alerts actually sent.
 
 ### SEC alerts
 
@@ -79,9 +59,10 @@ Kayyem Jon Faiz (Director) bought $500k · 5,000 sh @ $100.00 · 2026-09-23
 ```
 
 ```
-📄 8-K — MCD (MCDONALDS CORP)
-Reg FD disclosure (7.01)
-Watching because: in the Reddit digest Sep 24
+📄 8-K — ACME (ACME CORP)
+Material agreement (1.01)
+💵 $4.12 · 1d +2.1% · 5d +3.0% · RelVol 4.8×
+Watching because: Reddit alert Sep 24 · Yahoo
 ```
 
 ### Congress trades
@@ -132,7 +113,9 @@ Roles come from the [congress-legislators](https://github.com/unitedstates/congr
 🟠 Aggressive (Δ 0.25–0.35)    Sell Oct 23 $23 put @ $0.92 · 50%/yr · BE $22.09 (−8.2%)  · ~70% profit
 ```
 
-Posted only on days worth selling: an anchor's ladder when its IV rank is 50+ (implied ≥ 1.3× realized volatility until 20 days of IV history exist) and some strike pays 30%/yr or more, and watchlist picks only when one passes every filter. Every run still records IV history, so quiet days build the IV rank.
+Posted only on days worth selling: an anchor's ladder when its IV rank is 50+ (implied ≥ 1.3× realized volatility until 20 days of IV history exist) and some strike pays 30%/yr or more, and watchlist picks only when one passes every filter. Rich premiums last for weeks, so once a ladder is posted it stays quiet for `CSP_REPOST_DAYS` (7) unless IV climbs another `CSP_REPOST_IV_JUMP` (5 vol points). Every scan still records IV history, so quiet days build the IV rank.
+
+When Nasdaq doesn't list the next earnings date yet (it usually appears only 2–3 weeks ahead), it's estimated from the company's past results 8-Ks — the same quarter a year earlier — and expiries from a week before the estimate are skipped.
 
 ### Market alarms
 
@@ -156,8 +139,8 @@ Digest (scripts/notify.py)                    SEC checker (scripts/sec_check.py)
   Yahoo      → 2 months of daily bars           Form 4 XML → open-market buys (code P)
   EDGAR      → insider trades, 8-Ks per ticker  EDGAR     → 30-day cluster per ticker
   Nasdaq     → earnings calendar                Yahoo     → price context
-  DuckDuckGo → headlines                        state     → skip filings already processed,
-  GitHub Models → catalyst JSON                              watch tickers from the digest
+                                                state     → skip filings already processed,
+                                                            watch tickers from Reddit alerts
         │                                                │
         └───────────── Discord webhook ──────────────────┘
                  run history → `state` branch
@@ -198,9 +181,19 @@ Form 4s are filed within two business days of an insider trade. Only **open-mark
 - the new purchases total at least `SEC_ALERT_USD` (default $100k), or
 - at least two insiders have bought in the last 30 days (a *cluster*) and the new purchase is at least `SEC_MIN_BUY_USD` (default $25k).
 
-Skipped: stocks under `MIN_PRICE`, ETFs and funds, placeholder symbols like `NONE`, and stocks with under a week of trading history (IPO allocations at the offering price, not market buys). Trades reported more than 5 days late are flagged ⚠️.
+Skipped:
 
-**8-K alerts** only cover tickers from the digest in the last 7 days or with an insider alert in the last 30, and skip routine items (exhibits, shareholder votes, bylaw changes).
+- Purchases of preferred shares, notes or warrants (e.g. an executive buying $25 preferred in an offering) — only common stock, ordinary shares, ADSs and MLP units count
+- Insider prices that can't belong to the US listing (outside 0.8–1.25× its 52-week range): foreign shares bought in another currency, like Bradesco directors buying São Paulo shares in reais
+- Closed-end and interval funds (issuers that file N-CSR / NPORT reports), ETFs, stocks under `MIN_PRICE`, placeholder symbols like `NONE`
+- Stocks with under a week of trading history (IPO allocations at the offering price, not market buys)
+- Trades older than `SEC_MAX_TRADE_AGE_DAYS` (30) by the time they're reported. Trades reported more than 5 days late are flagged ⚠️
+
+Business development companies are posted but tagged **· BDC**: they're yield vehicles, so insider buying says less about growth.
+
+Each run reads EDGAR's latest-filings feed back to the previous run, up to 4 days (EDGAR serves roughly the last 2–3 trading days), so skipped or late GitHub runs don't lose filings.
+
+**8-K alerts** only cover tickers posted as a Reddit alert in the last 7 days or with an insider alert in the last 30, and skip routine items (exhibits, shareholder votes, bylaw changes, Reg FD slides on their own). Several 8-Ks from one company arrive as one card with its price.
 
 ### Put scan strategy
 
@@ -254,7 +247,7 @@ Every job keeps JSON history on the **`state` branch** (checked out into `state/
 
 - `digest.json` — 14 days of per-run mention snapshots and 30 days of alerts (price, stage, SPY at the time)
 - `sec.json` — last check time, filings already processed, recent insider-alert tickers
-- `options.json` — daily 30-day implied volatility per ticker (a year), for IV rank
+- `options.json` — daily 30-day implied volatility per ticker (a year) for IV rank, the last scan day, and when each anchor's ladder was last posted
 - `macro.json` — which market alarms are on, and when each last alerted
 - `congress.json` — House filings already processed, and 90 days of purchases (to spot cluster buying)
 
@@ -271,19 +264,18 @@ Deleting a file just resets that history.
    | Secret | Value |
    |--------|-------|
    | `DISCORD_WEBHOOK_URL` | your webhook URL |
-   | `SEC_CONTACT_EMAIL` | an email address SEC can contact — [EDGAR requires it](https://www.sec.gov/os/accessing-edgar-data) in every request's User-Agent. Without it the SEC features are skipped. |
+   | `SEC_CONTACT_EMAIL` | an email address SEC can contact — [EDGAR requires it](https://www.sec.gov/os/accessing-edgar-data) in every request's User-Agent. Without it the SEC features are skipped (including the Reddit insider-buying gate, so no Reddit alert can fire). |
 
 3. **Test manually**
    **Actions** → **Stock alert** → **Run workflow**, and the same for **SEC insider check**, **Put scan** and **Congress trades**.
 
-4. **Scheduled runs** (UTC; GitHub cron doesn't follow daylight saving, so ET times shift an hour earlier in winter). Odd minutes avoid the `:00`/`:15`/`:30` rush when GitHub's scheduler is most congested.
+4. **Scheduled runs** (UTC; GitHub cron doesn't follow daylight saving, so ET times shift an hour earlier in winter). Odd minutes avoid the `:00`/`:15`/`:30` rush when GitHub's scheduler is most congested. In practice GitHub drops most scheduled runs and starts the rest hours late (the 20-minute SEC check runs ~3 times a day), so the once-a-day jobs have backup slots and guard against running twice, and the SEC check backfills whatever it missed.
 
    | Job | UTC | ET (summer) | Purpose |
    |-----|-----|-------------|---------|
-   | Reddit alerts | Mon–Fri 11:37 | 7:37 AM | Pre-market: overnight Reddit growth and filings before the open. GitHub often starts cron runs late (hours, on busy days); it never runs twice in one US day |
-   | Reddit recap + scorecard | Sun 21:13 | 5:13 PM | Weekend due-diligence threads before Monday |
-   | SEC check | Mon–Fri :13/:33/:53, 12–23h | 8 AM – 8 PM | New insider buys and watched 8-Ks |
-   | Put scan | Mon–Fri 14:47 | 10:47 AM | After the open, once option spreads have tightened |
+   | Reddit alerts | Mon–Fri 11:37, backups 12:07–13:07 | 7:37 AM | Pre-market: overnight Reddit growth and filings before the open. Runs once per US day |
+   | SEC check | paused (manual only) | — | New insider buys and watched 8-Ks |
+   | Put scan | paused (manual only); was Mon–Fri 14:47, backups hourly to 19:47 | 10:47 AM | After the open, once option spreads have tightened. Scans once per market day, not before 9:45 ET |
    | Congress trades | Mon–Fri 22:41 | 6:41 PM | New House trade disclosures |
 
 ## Local development
@@ -292,16 +284,15 @@ Deleting a file just resets that history.
 pip install -r scripts/requirements.txt
 export DISCORD_WEBHOOK_URL="https://discord.com/api/webhooks/..."
 export SEC_CONTACT_EMAIL="you@example.com"   # optional: SEC data
-export GITHUB_TOKEN="ghp_..."                # optional: AI research (PAT with `models` scope)
 export STATE_DIR="state"                     # optional: where history is kept (default ./state)
 python scripts/notify.py
-python scripts/sec_check.py
+DRY_RUN=1 python scripts/sec_check.py        # print insider/8-K alerts without posting or saving
 DRY_RUN=1 python scripts/put_scan.py         # print the put scan instead of posting it
 DRY_RUN=1 python scripts/macro_check.py      # print market alarms that would fire now
 python scripts/macro_check.py --backtest 2018-01-01   # every alert since then, with SPY's return after
 ```
 
-Without `GITHUB_TOKEN`, researched cards still get news sources, just no AI summary. Without `SEC_CONTACT_EMAIL`, cards omit the SEC line and `sec_check.py` exits immediately.
+Without `SEC_CONTACT_EMAIL`, cards omit the SEC line (so nothing clears the Reddit bar) and `sec_check.py` exits immediately.
 
 ### Tests
 
@@ -330,16 +321,12 @@ Set in the workflow `env:` blocks (or export locally):
 | `TOP_N` | `5` | Tickers shown per digest. |
 | `MIN_PRICE` | `1` | Drop stocks priced below this (USD). |
 | `YAHOO_USER_AGENT` | `stock_alert-cron/1.0` | User-Agent for Yahoo Finance and ApeWisdom. |
-| `ENABLE_RESEARCH` | `1` | Set `0` to disable news + AI research. |
-| `RESEARCH_TOP_N` | `TOP_N` | How many top cards get research (and a sentiment read). |
-| `RESEARCH_MODEL` | `openai/gpt-4o-mini` | [GitHub Models](https://docs.github.com/en/github-models) catalog ID. |
-| `RESEARCH_NEWS_COUNT` | `5` | Headlines fetched per ticker for model context (2 shown). |
-| `GITHUB_MODELS_URL` | `https://models.github.ai/inference/chat/completions` | Override inference endpoint. |
 | `FORCE` | `0` | Reddit alerts: run even if today's run already happened (manual workflow runs set this). |
-| `DIGEST_MODE` | `auto` | `auto` = alerts on weekdays and the recap on Sundays; `alert` or `recap` to force one. |
-| `SCORECARD_DAYS` | `14` | Pick age window for the Sunday scorecard. |
+| `DIGEST_MODE` | `alert` | `recap` posts the weekly recap and scorecard instead of checking for alerts. |
+| `SCORECARD_DAYS` | `14` | Pick age window for the recap's scorecard. |
 | `SEC_ALERT_USD` | `100000` | New insider buying that alerts on its own. |
 | `SEC_MIN_BUY_USD` | `25000` | Smallest purchase considered (alerts only as part of a cluster). |
+| `SEC_MAX_TRADE_AGE_DAYS` | `30` | Skip insider trades older than this when reported. |
 | `CSP_WATCHLIST` | see `put_scan.py` | Comma-separated tickers to scan for cash-secured puts. Only list stocks you'd own. The workflow sets it empty, so only the anchors are posted. |
 | `CSP_ANCHORS` | `GME` | Tickers you're happy to own; always shown with a strike ladder. |
 | `CSP_TOP_N` | `5` | Put picks shown per scan. |
@@ -351,25 +338,28 @@ Set in the workflow `env:` blocks (or export locally):
 | `CSP_MIN_OI` / `CSP_MIN_BID` / `CSP_MAX_SPREAD_PCT` | `50` / `0.10` / `25` | Liquidity filters. |
 | `CSP_ALERT_IV_RANK` | `50` | Post an anchor's ladder only when its IV rank is at least this. |
 | `CSP_ALERT_IV_EDGE` | `1.3` | Until 20 days of IV history exist (no IV rank yet): require implied ≥ this × realized volatility instead. |
+| `CSP_REPOST_DAYS` / `CSP_REPOST_IV_JUMP` | `7` / `0.05` | After posting an anchor's ladder, stay quiet this many days unless IV30 rises this much more. |
 | `CSP_ALERT_MIN_ANNUALIZED` | `30` | …and a ladder strike paying at least this %/yr. |
 | `CONGRESS_MIN_SCORE` | `6` | Purchases scoring at least this are posted. |
 | `CONGRESS_WATCH` | — | Optional comma-separated member names whose every stock/option trade is posted regardless of score. |
 | `CONGRESS_LOOKBACK_DAYS` | `10` | Ignore filings older than this (keeps a first run from flooding the channel). |
-| `DRY_RUN` | `0` | Reddit alerts, put scan, congress trades and market alarms: print the Discord payload instead of posting. |
+| `FORCE` | `0` | Put scan: scan even if today's scan already ran or the market hasn't settled (manual workflow runs set this). |
+| `DRY_RUN` | `0` | Every job: print the Discord payload instead of posting. |
 
-In GitHub Actions the workflow passes its built-in `GITHUB_TOKEN`; `permissions: models: read` lets it call GitHub Models, and `contents: write` lets it push history to the `state` branch.
+In GitHub Actions, `permissions: contents: write` lets each job push history to the `state` branch. A **Tests** workflow runs the unit tests on every push to `main` and on pull requests.
 
 ## Project layout
 
 ```
 .github/workflows/
   stock-alert.yml     # Digest schedule
-  sec-check.yml       # SEC checker schedule
+  sec-check.yml       # SEC checker (paused; manual runs only)
   put-scan.yml        # Put scan schedule
   macro-check.yml     # Market alarms schedule
   congress-check.yml  # Congress trades schedule
+  tests.yml           # Unit tests on push and pull requests
 scripts/
-  notify.py           # Reddit alerts + Sunday recap: rank, enrich, alert bar, post
+  notify.py           # Reddit alerts (+ recap on request): rank, enrich, alert bar, post
   sec_check.py        # SEC checker: scan feeds, filter, post
   put_scan.py         # Put scan: rank puts, anchor ladders, rich-premium gate, post
   macro_check.py      # Market alarms: on/off transitions, post, backtest
@@ -381,16 +371,14 @@ scripts/
   reddit.py           # ApeWisdom fetch + acceleration score
   market.py           # Yahoo quotes, stage, relative volume, Nasdaq earnings
   sec.py              # EDGAR client, Form 4 / 8-K parsing
-  research.py         # DuckDuckGo news + GitHub Models catalyst JSON
   state.py            # Run history, streaks, momentum, scorecard
   common.py           # Env helpers, formatting, Discord delivery
   save_state.sh       # Commit + push the state checkout
   test_*.py           # Unit tests (factories.py, conftest.py helpers)
-  requirements.txt    # httpx, ddgs, pypdf
+  requirements.txt    # httpx, pypdf
 ```
 
 ## Requirements
 
 - Python 3.13 (used in CI)
 - [httpx](https://www.python-httpx.org/) for async HTTP
-- [ddgs](https://pypi.org/project/ddgs/) for news headline search

@@ -156,10 +156,9 @@ def test_score_and_summarize():
     assert stats[STAGE_LATE].win_rate == 100.0
 
 
-def test_record_run_stores_sentiment_and_alerted():
-    alerts = [AlertRecord("ACME", 4.12, STAGE_EARLY, 12.3, sentiment="bullish", alerted=True)]
+def test_record_run_stores_alerted():
+    alerts = [AlertRecord("ACME", 4.12, STAGE_EARLY, 12.3, alerted=True)]
     result = record_run(empty_digest_state(), now=NOW, rows=[], alerts=alerts, spy_price=None, min_mentions=5)
-    assert result["alerts"][0]["sentiment"] == "bullish"
     assert result["alerts"][0]["alerted"] is True
 
 
@@ -182,14 +181,14 @@ def test_week_summaries():
         ],
         "alerts": [
             {"ts": iso(NOW - timedelta(days=9)), "ticker": "ORCL", "price": 100.0},
-            {"ts": iso(NOW - timedelta(hours=48)), "ticker": "ORCL", "price": 140.0, "sentiment": "bearish"},
+            {"ts": iso(NOW - timedelta(hours=48)), "ticker": "ORCL", "price": 140.0},
             {"ts": iso(NOW - timedelta(hours=48)), "ticker": "BB", "price": 4.0},
             {"ts": iso(NOW - timedelta(hours=24)), "ticker": "ORCL", "price": 139.0, "alerted": True},
         ],
     }
     weeks = week_summaries(state, now=NOW)
     assert weeks == [
-        WeekSummary("ORCL", 2, NOW - timedelta(hours=48), 140.0, True, "bearish", 30, 40),
-        WeekSummary("BB", 1, NOW - timedelta(hours=48), 4.0, False, None, 53, 53),
+        WeekSummary("ORCL", 2, NOW - timedelta(hours=48), 140.0, True, 30, 40),
+        WeekSummary("BB", 1, NOW - timedelta(hours=48), 4.0, False, 53, 53),
     ]
     assert weeks[0].mentions_change == pytest.approx(33.33, abs=0.01)

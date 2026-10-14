@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
-"""Reddit buzz, alert-only: weekdays post only picks worth acting on; Sundays post a weekly recap.
+"""Reddit buzz, alert-only: posts only when a pick clears a deliberately strict bar.
 
-Every run ranks accelerating Reddit tickers and researches the top ones (sentiment, catalyst,
-insiders, trend), then records them as tracked picks. On weekdays a pick is posted only when it
-clears the alert bar (see alert_reasons): bullish buzz, a price that hasn't reacted yet, no
-downtrend, and something confirming it. Quiet days post nothing. Sunday's recap shows the week's
-tracked picks, what's heading into the new week, and a scorecard of how picks and alerts did.
+Every weekday run ranks accelerating Reddit tickers, checks the top ones against price, trend and
+SEC filings, and records them as tracked picks. A pick is posted only when the buzz is early (price
+quiet), the stock is in an uptrend, volume is unusual and insiders have been buying — all four.
+Most days post nothing. The Sunday recap and scorecard run only when asked for (DIGEST_MODE=recap).
 """
 
 from __future__ import annotations
@@ -18,13 +17,11 @@ from dataclasses import dataclass, replace
 from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any
-from zoneinfo import ZoneInfo
 
 import httpx
 
 from common import (
     EMBED_DESCRIPTION_LIMIT,
-    EMBED_FIELD_VALUE_LIMIT,
     EMBED_TITLE_LIMIT,
     NotifyError,
     clip,
@@ -37,10 +34,11 @@ from common import (
     send_discord,
 )
 from market import (
+    MARKET_TZ,
     STAGE_EARLY,
     STAGE_LATE,
     STAGE_MOVING,
-    TREND_DOWN,
+    TREND_UP,
     YAHOO_QUOTE_PAGE_URL,
     EarningsEvent,
     StockQuote,
@@ -53,7 +51,6 @@ from market import (
     is_tradeable,
 )
 from reddit import TrendRow, enrich_and_rank, fetch_apewisdom
-from research import Research, research_ticker
 from sec import SecActivity, SecClient, format_activity_line, ticker_activity
 from state import (
     DIGEST_STATE_FILE,
@@ -80,8 +77,6 @@ from state import (
 # non-tickers Yahoo doesn't know) gets dropped, so we over-fetch.
 CANDIDATE_MULTIPLIER = 3
 BENCHMARK = "SPY"
-RECAP_WEEKDAY = 6  # Sunday
-MARKET_TZ = ZoneInfo("America/New_York")
 # Mention moves smaller than this read as "steady".
 STEADY_MENTIONS_PCT = 10.0
 # Trading volume at least this multiple of normal confirms the buzz is moving real money.
@@ -101,12 +96,6 @@ STAGE_HINT = {
     STAGE_LATE: "big move already happened",
     None: "",
 }
-SENTIMENT_STYLE = {
-    "bullish": ("🐂", "Bullish", 0x2ECC71),
-    "bearish": ("🐻", "Bearish", 0xE74C3C),
-    "mixed": ("⚖️", "Mixed", 0xF1C40F),
-    "unclear": ("❔", "Unclear", 0x95A5A6),
-}
 SCORECARD_COLOR = 0x3498DB
 RECAP_COLOR = 0x5865F2
 
@@ -119,11 +108,6 @@ class Signal:
     trajectory: Trajectory | None = None
     sec: SecActivity | None = None
     earnings: EarningsEvent | None = None
-    research: Research | None = None
-
-    @property
-    def sentiment(self) -> str | None:
-        return self.research.sentiment if self.research is not None else None
 
 
 def build_signals(
@@ -192,56 +176,15 @@ def format_earnings_line(event: EarningsEvent, *, today: date) -> str:
     return f"📅 Earnings {when} ({event.day.strftime('%a %b %-d')}{timing})"
 
 
-def _research_fields(research: Research) -> list[dict[str, Any]]:
-    fields: list[dict[str, Any]] = []
-    if research.catalyst:
-        tags = [t for t in (research.catalyst_type,) if t]
-        if research.fresh is not None:
-            tags.append("fresh news" if research.fresh else "older news")
-        if research.priced_in:
-            tags.append(f"priced in: {research.priced_in}")
-        value = research.catalyst + (f"\n*{' · '.join(tags)}*" if tags else "")
-        fields.append({"name": "📰 Catalyst", "value": clip(value, EMBED_FIELD_VALUE_LIMIT)})
-    if research.risks:
-        value = "\n".join(f"• {r}" for r in research.risks)
-        fields.append({"name": "⚠️ Risks", "value": clip(value, EMBED_FIELD_VALUE_LIMIT)})
-    if research.headlines:
-        value = ""
-        for h in research.headlines[:2]:
-            line = f"• [{clip(h.title, 90)}]({h.url}) — {h.source}"
-            candidate = f"{value}\n{line}" if value else line
-            if len(candidate) > EMBED_FIELD_VALUE_LIMIT:
-                break
-            value = candidate
-        if value:
-            fields.append({"name": "Sources", "value": value})
-    return fields
-
-
-def format_verdict_line(signal: Signal) -> str:
-    """The two questions that matter first: is the buzz good or bad news, and has the price reacted?"""
-    emoji, label, _ = STAGE_STYLE[signal.stage]
-    stage = f"{emoji} **{label}**" + (f" ({STAGE_HINT[signal.stage]})" if STAGE_HINT[signal.stage] else "")
-    research = signal.research
-    if research is None or research.sentiment is None:
-        return stage
-    s_emoji, s_label, _ = SENTIMENT_STYLE[research.sentiment]
-    sentiment = f"{s_emoji} **{s_label} buzz**"
-    if research.sentiment_reason:
-        sentiment += f" — {research.sentiment_reason}"
-    return f"{sentiment}\n{stage}"
-
-
 def build_signal_embed(index: int, signal: Signal, *, today: date) -> dict[str, Any]:
-    _, _, color = STAGE_STYLE[signal.stage]
-    if signal.sentiment is not None:
-        color = SENTIMENT_STYLE[signal.sentiment][2]
+    emoji, label, color = STAGE_STYLE[signal.stage]
     trend = signal.trend
     title = f"{index}. {trend.ticker}"
     if trend.name:
         title += f" — {trend.name}"
 
-    lines = [format_verdict_line(signal), format_price_line(signal.quote, show_range=False)]
+    stage = f"{emoji} **{label}**" + (f" ({STAGE_HINT[signal.stage]})" if STAGE_HINT[signal.stage] else "")
+    lines = [stage, format_price_line(signal.quote, show_range=False)]
     trend_line = format_trend_line(signal.quote)
     if trend_line:
         lines.append(trend_line)
@@ -262,32 +205,23 @@ def build_signal_embed(index: int, signal: Signal, *, today: date) -> dict[str, 
         "description": clip("\n".join(lines), EMBED_DESCRIPTION_LIMIT),
         "footer": {"text": f"Trend score {trend.trend_score:.1f} · {trend.upvotes} upvotes"},
     }
-    if signal.research is not None:
-        fields = _research_fields(signal.research)
-        if fields:
-            embed["fields"] = fields
     return embed
 
 
 def alert_reasons(signal: Signal) -> list[str]:
     """What confirms a pick is worth acting on today; empty when it doesn't clear the bar.
 
-    The bar: bullish buzz, a price that hasn't reacted yet, not in a downtrend, and at least one
-    confirmation that real money or real news is behind the chatter."""
-    if signal.sentiment != "bullish" or signal.stage != STAGE_EARLY:
+    Reddit chatter alone has no edge (the scorecard showed early picks trailing SPY), so the bar
+    asks for all of it at once: the price hasn't reacted yet, the stock is in an uptrend, real money
+    is trading it, and the people who run the company have been buying."""
+    if signal.stage != STAGE_EARLY or classify_trend(signal.quote) != TREND_UP:
         return []
-    if classify_trend(signal.quote) == TREND_DOWN:
-        return []
-    reasons: list[str] = []
     rel_volume = signal.quote.rel_volume
-    if rel_volume is not None and rel_volume >= CONFIRM_REL_VOLUME:
-        reasons.append(f"volume {rel_volume:.1f}× normal")
-    if signal.sec is not None and signal.sec.buys:
-        reasons.append("insiders buying")
-    research = signal.research
-    if research is not None and research.fresh and research.priced_in == "no":
-        reasons.append("fresh catalyst not priced in")
-    return reasons
+    if rel_volume is None or rel_volume < CONFIRM_REL_VOLUME:
+        return []
+    if signal.sec is None or not signal.sec.buys:
+        return []
+    return [f"volume {rel_volume:.1f}× normal", "insiders buying", "uptrend"]
 
 
 def _utc(when: datetime | None) -> datetime:
@@ -300,24 +234,20 @@ def build_alert_payload(signals: list[Signal], *, when: datetime | None = None) 
     ts = _utc(when)
     content = (
         f"🔔 **Reddit alert** · {ts.astimezone(MARKET_TZ):%a %b %-d} — "
-        f"{len(signals)} pick{'s' if len(signals) != 1 else ''} worth a look: bullish buzz, price quiet, "
-        "no downtrend, and confirmed"
+        f"{len(signals)} pick{'s' if len(signals) != 1 else ''} worth a look: buzz building, price quiet, "
+        "uptrend, heavy volume and insider buying"
     )
     embeds = []
     for index, signal in enumerate(signals, start=1):
         embed = build_signal_embed(index, signal, today=ts.date())
-        embed["description"] = clip(
-            f"✅ **Confirmed by:** {', '.join(alert_reasons(signal))}\n{embed['description']}", EMBED_DESCRIPTION_LIMIT
-        )
+        header = f"✅ **Confirmed by:** {', '.join(alert_reasons(signal))}"
+        embed["description"] = clip(f"{header}\n{embed['description']}", EMBED_DESCRIPTION_LIMIT)
         embeds.append(embed)
     return {"content": content, "embeds": fit_embeds(embeds)}
 
 
 def format_week_line(week: WeekSummary, quote: StockQuote | None) -> str:
     parts = [f"{'🔔' if week.alerted else '•'} **{week.ticker}** {week.days} day{'s' if week.days != 1 else ''}"]
-    if week.sentiment in SENTIMENT_STYLE:
-        emoji, label, _ = SENTIMENT_STYLE[week.sentiment]
-        parts.append(f"{emoji} {label.lower()}")
     if week.mentions_first is not None and week.mentions_last is not None:
         change = week.mentions_change
         arrow = f" {mentions_arrow(change)}" if change is not None else ""
@@ -332,19 +262,12 @@ def format_week_line(week: WeekSummary, quote: StockQuote | None) -> str:
 
 def format_outlook_line(index: int, signal: Signal) -> str:
     parts = []
-    if signal.sentiment in SENTIMENT_STYLE:
-        emoji, label, _ = SENTIMENT_STYLE[signal.sentiment]
-        parts.append(f"{emoji} {label}")
     stage_emoji, stage_label, _ = STAGE_STYLE[signal.stage]
     parts.append(f"{stage_emoji} {stage_label}")
     trend = classify_trend(signal.quote)
     if trend is not None:
         parts.append({"up": "📈 Uptrend", "down": "📉 Downtrend", "sideways": "↔️ Sideways"}[trend])
-    line = f"{index}. **{signal.trend.ticker}** · {' · '.join(parts)}"
-    reason = signal.research.sentiment_reason if signal.research is not None else None
-    if reason:
-        line += f"\n  ↳ {clip(reason, 140)}"
-    return line
+    return f"{index}. **{signal.trend.ticker}** · {' · '.join(parts)}"
 
 
 def build_recap_payload(
@@ -371,7 +294,10 @@ def build_recap_payload(
                 "title": "📋 This week's tracked picks",
                 "color": RECAP_COLOR,
                 "description": clip("\n".join(lines), EMBED_DESCRIPTION_LIMIT),
-                "footer": {"text": "🔔 = cleared the alert bar and was posted · days = days in the daily top picks"},
+                "footer": {
+                    "text": ("🔔 = cleared the alert bar and was posted · " if alerted else "")
+                    + "days = days in the daily top picks"
+                },
             }
         )
     if signals:
@@ -389,38 +315,8 @@ def build_recap_payload(
     return {"content": content, "embeds": fit_embeds(embeds)}
 
 
-def build_research_context(signal: Signal, *, today: date) -> str:
-    trend, quote = signal.trend, signal.quote
-    prior = trend.mentions_24h_ago if trend.mentions_24h_ago is not None else 0
-    rel_volume = f"{quote.rel_volume:.1f}x" if quote.rel_volume is not None else "n/a"
-    lines = [
-        (
-            f"Reddit (ApeWisdom): {prior} → {trend.mentions} mentions in 24h, "
-            f"rank #{trend.rank} (was #{trend.rank_24h_ago or 'n/a'})"
-        ),
-        (
-            f"Price: ${quote.price:.2f}, 1d {format_pct(quote.change_1d)}, 5d {format_pct(quote.change_5d)}, "
-            f"relative volume {rel_volume}, stage {STAGE_STYLE[signal.stage][1]}"
-        ),
-    ]
-    if quote.daily_volatility:
-        lines.append(f"Typical daily move: ±{quote.daily_volatility:.1f}%")
-    trend_line = format_trend_line(quote)
-    if trend_line:
-        lines.append("Longer trend: " + trend_line.replace("**", ""))
-    if signal.trajectory is not None and len(signal.trajectory.mentions) > 1:
-        lines.append(f"Mentions across recent runs: {' → '.join(map(str, signal.trajectory.mentions))}")
-    if signal.sec is not None:
-        sec_line = format_activity_line(signal.sec, today=today)
-        if sec_line:
-            lines.append("SEC filings: " + sec_line.removeprefix("🏛 ").replace("**", ""))
-    if signal.earnings is not None:
-        lines.append(format_earnings_line(signal.earnings, today=today).removeprefix("📅 "))
-    return "\n".join(lines)
-
-
 def _stats_line(label: str, s: StageStats) -> str:
-    vs_spy = f" · vs {BENCHMARK} {format_pct(s.avg_excess)}" if s.avg_excess is not None else ""
+    vs_spy = f" · {format_pct(s.avg_excess)} vs {BENCHMARK}" if s.avg_excess is not None else ""
     return f"{label}: {s.count} picks · avg {format_pct(s.avg_return)}{vs_spy} · {s.win_rate:.0f}% winners"
 
 
@@ -488,8 +384,6 @@ async def enrich_signals(
     signals: list[Signal],
     *,
     today: date,
-    research_top_n: int,
-    max_news: int,
 ) -> list[Signal]:
     contact_email = os.environ.get("SEC_CONTACT_EMAIL", "").strip()
     sec = SecClient(client, contact_email) if contact_email else None
@@ -503,22 +397,10 @@ async def enrich_signals(
         fetch_earnings_calendar(client, start=today),
         *[sec_lookup(s) for s in signals],
     )
-    signals = [
+    return [
         replace(s, sec=activity, earnings=earnings.get(s.trend.ticker))
         for s, activity in zip(signals, activities)
     ]
-
-    # Sequential: DuckDuckGo rate-limits bursts, and GitHub Models' free tier is per-minute.
-    enriched: list[Signal] = []
-    for index, signal in enumerate(signals):
-        if index < research_top_n:
-            context = build_research_context(signal, today=today)
-            research = await research_ticker(
-                client, signal.trend.ticker, context, max_news=max_news, name=signal.trend.name
-            )
-            signal = replace(signal, research=research)
-        enriched.append(signal)
-    return enriched
 
 
 async def run() -> None:
@@ -526,8 +408,6 @@ async def run() -> None:
     pages = env_int("APEWISDOM_PAGES", 3)
     top_n = env_int("TOP_N", 5)
     min_price = env_float("MIN_PRICE", 1.0)
-    research_top_n = env_int("RESEARCH_TOP_N", top_n) if env_bool("ENABLE_RESEARCH", True) else 0
-    max_news = env_int("RESEARCH_NEWS_COUNT", 5)
     window_days = env_int("SCORECARD_DAYS", 14)
     state_path = Path(env("STATE_DIR", "state")) / DIGEST_STATE_FILE
     user_agent = env("YAHOO_USER_AGENT", "stock_alert-cron/1.0")
@@ -538,8 +418,8 @@ async def run() -> None:
     if already_ran_today(previous_run, now) and not env_bool("FORCE", False):
         print(f"Already ran today ({previous_run:%H:%M} UTC); set FORCE=1 to run again.")
         return
-    mode = env("DIGEST_MODE", "auto").strip().lower()
-    recap = mode == "recap" or (mode == "auto" and now.astimezone(MARKET_TZ).weekday() == RECAP_WEEKDAY)
+    # The weekly recap is opt-in: it's a digest to read, not something to act on.
+    recap = env("DIGEST_MODE", "alert").strip().lower() == "recap"
 
     async with httpx.AsyncClient(timeout=20.0, headers={"User-Agent": user_agent}) as client:
         rows = await fetch_apewisdom(client, pages=pages)
@@ -550,9 +430,7 @@ async def run() -> None:
         quotes = await fetch_stock_quotes(client, [*(c.ticker for c in candidates), *(w.ticker for w in weeks), BENCHMARK])
         spy = quotes.get(BENCHMARK)
         signals = build_signals(candidates, quotes, min_price=min_price, top_n=top_n, trajectories=trajectories)
-        signals = await enrich_signals(
-            client, signals, today=now.date(), research_top_n=research_top_n, max_news=max_news
-        )
+        signals = await enrich_signals(client, signals, today=now.date())
         alerts = [s for s in signals if alert_reasons(s)]
 
         payload: dict[str, Any] | None = None
@@ -579,7 +457,6 @@ async def run() -> None:
             s.quote.price,
             s.stage,
             s.trend.trend_score,
-            sentiment=s.sentiment,
             alerted=not recap and s in alerts,
         )
         for s in signals

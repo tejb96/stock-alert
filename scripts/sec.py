@@ -54,8 +54,20 @@ EIGHT_K_ITEMS = {
     "8.01": "Other material event",
     "9.01": "Exhibits",
 }
-# Routine items that don't move stocks on their own.
-LOW_SIGNAL_ITEMS = frozenset({"9.01", "5.07", "5.03"})
+# Routine items that don't move stocks on their own. Reg FD (7.01) is mostly investor-day slides
+# and press-release copies; it still shows alongside a notable item.
+LOW_SIGNAL_ITEMS = frozenset({"9.01", "5.07", "5.03", "7.01"})
+# Purchases of these aren't a bet on the common stock: preferred shares bought in an offering at
+# par ($25), notes, warrants. Their prices also don't compare with the common's quote.
+NON_COMMON_SECURITY_RE = re.compile(r"\b(preferred|preference|pfd|warrants?|notes?|debentures?|bonds?)\b", re.I)
+# Forms only registered investment companies (closed-end and interval funds) file.
+FUND_FORMS = frozenset({"N-CSR", "N-CSRS", "NPORT-P", "N-CEN"})
+# A business development company's election under the Investment Company Act.
+BDC_FORMS = frozenset({"N-54A"})
+RETRY_STATUSES = frozenset({429, 500, 502, 503, 504})
+MAX_ATTEMPTS = 3
+ISSUER_FUND = "fund"
+ISSUER_BDC = "bdc"
 
 
 def user_agent(contact_email: str) -> str:
@@ -77,6 +89,21 @@ def describe_items(items: list[str]) -> str:
 
 def is_notable_8k(items: list[str]) -> bool:
     return any(item not in LOW_SIGNAL_ITEMS for item in items)
+
+
+def is_common_equity(security_title: str | None) -> bool:
+    """Common stock, ordinary shares, ADSs, MLP units — anything but preferred, debt or warrants."""
+    return not NON_COMMON_SECURITY_RE.search(security_title or "")
+
+
+def issuer_kind(filings: list[FilingRef]) -> str | None:
+    """'fund' for registered closed-end/interval funds, 'bdc' for business development companies."""
+    forms = {f.form for f in filings}
+    if forms & FUND_FORMS:
+        return ISSUER_FUND
+    if forms & BDC_FORMS:
+        return ISSUER_BDC
+    return None
 
 
 @dataclass(frozen=True)
@@ -136,6 +163,8 @@ class SecActivity:
     eight_ks: list[FilingRef]
     planned_sell_value: float = 0.0
     """Part of sell_value from 10b5-1 plans: sales scheduled months ahead, so they say little about today."""
+    kind: str | None = None
+    """ISSUER_FUND, ISSUER_BDC, or None for an operating company."""
 
     @property
     def buy_value(self) -> float:
@@ -214,6 +243,8 @@ def parse_form4(xml_text: str, *, accession: str, filed: str) -> Form4 | None:
         shares = _float(txn, "transactionAmounts/transactionShares/value")
         price = _float(txn, "transactionAmounts/transactionPricePerShare/value")
         if shares is None or price is None or price <= 0:
+            continue
+        if not is_common_equity(_text(txn, "securityTitle/value")):
             continue
         # P = open-market purchase, S = open-market sale. Grants, exercises and gifts are ignored.
         if code == "P":
@@ -306,14 +337,24 @@ class SecClient:
         self._tickers_lock = asyncio.Lock()
 
     async def get(self, url: str, **params: Any) -> httpx.Response:
-        async with self._lock:
-            wait = SEC_MIN_INTERVAL_SECONDS - (time.monotonic() - self._last_request)
-            if wait > 0:
-                await asyncio.sleep(wait)
-            self._last_request = time.monotonic()
-        response = await self._client.get(url, headers=self._headers, params=params or None, timeout=20.0)
-        response.raise_for_status()
-        return response
+        """GET with EDGAR's rate limit, retrying timeouts and throttling/server errors with backoff."""
+        for attempt in range(1, MAX_ATTEMPTS + 1):
+            async with self._lock:
+                wait = SEC_MIN_INTERVAL_SECONDS - (time.monotonic() - self._last_request)
+                if wait > 0:
+                    await asyncio.sleep(wait)
+                self._last_request = time.monotonic()
+            try:
+                response = await self._client.get(url, headers=self._headers, params=params or None, timeout=20.0)
+            except httpx.TransportError:
+                if attempt == MAX_ATTEMPTS:
+                    raise
+            else:
+                if response.status_code not in RETRY_STATUSES or attempt == MAX_ATTEMPTS:
+                    response.raise_for_status()
+                    return response
+            await asyncio.sleep(2**attempt)
+        raise AssertionError("unreachable")
 
     async def ticker_map(self) -> dict[str, tuple[int, str]]:
         """Ticker → (CIK, company title)."""
@@ -400,7 +441,40 @@ async def ticker_activity(
         sell_value=sum(f.sell_value for f in form4s),
         eight_ks=eight_ks,
         planned_sell_value=sum(f.sell_value for f in form4s if f.planned),
+        kind=issuer_kind(filings),
     )
+
+
+def estimate_next_earnings(filings: list[FilingRef], *, today: date) -> date | None:
+    """Next earnings date guessed from past results 8-Ks (item 2.02), for when no calendar has it.
+
+    Companies report on a steady yearly rhythm, so the same quarter's report a year earlier (same
+    weekday, 52 weeks on) is a good guess; failing that, ~13 weeks after the latest report."""
+    reports = sorted(
+        {date.fromisoformat(f.filed) for f in filings if f.form == "8-K" and "2.02" in f.items}, reverse=True
+    )
+    if not reports:
+        return None
+    latest = reports[0]
+    # Skip pre-announcements and the report just made: the next one is ~2–4½ months out.
+    floor = max(today, latest + timedelta(days=60))
+    ceiling = latest + timedelta(days=140)
+    year_on = [d + timedelta(weeks=52) for d in reports if floor <= d + timedelta(weeks=52) <= ceiling]
+    if year_on:
+        return min(year_on)
+    guess = latest + timedelta(weeks=13)
+    return guess if guess >= today else None
+
+
+async def estimated_earnings(sec: SecClient, ticker: str, *, today: date) -> date | None:
+    try:
+        cik = await sec.cik_for(ticker)
+        if cik is None:
+            return None
+        return estimate_next_earnings(await sec.recent_filings(cik), today=today)
+    except (httpx.HTTPError, ValueError, KeyError) as exc:
+        print(f"sec: earnings estimate failed for {ticker}: {exc!r}", file=sys.stderr)
+        return None
 
 
 def _days_ago(filed: str, today: date) -> str:
