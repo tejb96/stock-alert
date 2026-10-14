@@ -8,6 +8,7 @@ so nothing is missed between runs and nothing is posted twice.
 from __future__ import annotations
 
 import asyncio
+import json
 import os
 import re
 import sys
@@ -25,13 +26,16 @@ from common import (
     NotifyError,
     clip,
     env,
+    env_bool,
     env_float,
+    env_int,
     fit_embeds,
     format_pct,
     format_usd,
     send_discord,
 )
 from market import (
+    MARKET_TZ,
     YAHOO_QUOTE_PAGE_URL,
     StockQuote,
     fetch_stock_quotes,
@@ -39,6 +43,8 @@ from market import (
     is_tradeable,
 )
 from sec import (
+    ISSUER_BDC,
+    ISSUER_FUND,
     FeedEntry,
     Form4,
     SecActivity,
@@ -58,15 +64,25 @@ from state import (
 )
 
 FEED_PAGE_SIZE = 100
-MAX_FEED_PAGES = 10
+# Each Form 4 is listed once for the issuer and once per reporting owner, so a busy day fills
+# ~2,000 feed entries. GitHub often skips scheduled runs for hours, so page back far enough to reach
+# the previous run; EDGAR serves the feed ~5,000 entries (2–3 trading days) deep.
+MAX_FEED_PAGES = 50
 FIRST_RUN_LOOKBACK = timedelta(hours=1)
-MAX_LOOKBACK = timedelta(hours=18)
+# Covers a weekend plus a skipped Monday run.
+MAX_LOOKBACK = timedelta(days=4)
 # Re-scan a little before the last check in case EDGAR published entries slightly out of order.
 LOOKBACK_OVERLAP = timedelta(minutes=10)
 # Only needs to outlive MAX_LOOKBACK; older accessions can never re-enter the scan window.
 SEEN_RETENTION = timedelta(days=1)
 # A trade reported more than this long after it happened is flagged as stale.
 LATE_FILING_DAYS = 5
+# Trades older than this aren't news any more, however late they were reported.
+DEFAULT_MAX_TRADE_AGE_DAYS = 30
+# An insider price this far outside the stock's 52-week range is in another currency or share class
+# (e.g. Bradesco directors buying São Paulo shares in reais), so neither the value nor the
+# comparison with the US quote holds.
+PRICE_RANGE_SLACK = (0.8, 1.25)
 # Non-traded funds report placeholder symbols.
 TICKER_RE = re.compile(r"^[A-Z]{1,5}([.-][A-Z]{1,2})?$")
 PLACEHOLDER_TICKERS = frozenset({"NONE", "NA", "N/A", "NULL"})
@@ -89,6 +105,16 @@ class InsiderAlert:
     @property
     def new_value(self) -> float:
         return sum(f.buy_value for f in self.filings)
+
+    @property
+    def insider_price(self) -> float | None:
+        """Share-weighted average price of the new purchases."""
+        shares = sum(f.buy_shares for f in self.filings)
+        return self.new_value / shares if shares else None
+
+    @property
+    def latest_trade(self) -> str | None:
+        return max((f.last_buy_date for f in self.filings if f.last_buy_date), default=None)
 
 
 def feed_window_start(last_check: str | None, now: datetime) -> datetime:
@@ -129,23 +155,53 @@ def qualifying_buys(form4s: list[Form4], *, min_value: float) -> list[Form4]:
     return [f for f in form4s if f.buy_value >= min_value and f.is_insider and is_listed_ticker(f.ticker)]
 
 
-def should_alert(
-    new_value: float,
-    activity: SecActivity | None,
-    quote: StockQuote | None,
+def price_mismatch(insider_price: float | None, quote: StockQuote | None) -> bool:
+    """The insider's price can't be a price of this listing: another currency or share class."""
+    if insider_price is None or quote is None:
+        return False
+    low, high = quote.fifty_two_week_low, quote.fifty_two_week_high
+    if not low or not high:
+        return False
+    return not PRICE_RANGE_SLACK[0] * low <= insider_price <= PRICE_RANGE_SLACK[1] * high
+
+
+def trade_age_days(alert: InsiderAlert, today: date) -> int | None:
+    try:
+        return (today - date.fromisoformat(alert.latest_trade)).days if alert.latest_trade else None
+    except ValueError:
+        return None
+
+
+def skip_reason(
+    alert: InsiderAlert,
     *,
+    today: date,
     alert_value: float,
     min_price: float,
-) -> bool:
-    """Big enough on its own, or part of a multi-insider cluster; never IPO allocations or pennies/funds."""
+    max_trade_age_days: int,
+) -> str | None:
+    """Why this purchase isn't worth an alert, or None to post it.
+
+    Posts buys big enough on their own or part of a multi-insider cluster, and never IPO
+    allocations, pennies, funds, stale trades, or prices that don't belong to this listing."""
+    quote, activity = alert.quote, alert.activity
     if quote is not None:
         if not is_tradeable(quote, min_price=min_price):
-            return False
+            return "penny stock or fund"
         # Under a week of trading history: insiders "buying" at the offering price, not in the market.
         if quote.change_5d is None:
-            return False
+            return "IPO allocation"
+    if activity is not None and activity.kind == ISSUER_FUND:
+        return "closed-end fund"
+    if price_mismatch(alert.insider_price, quote):
+        return "price in another currency or share class"
+    age = trade_age_days(alert, today)
+    if age is not None and age > max_trade_age_days:
+        return f"trade {age}d old"
     is_cluster = activity is not None and activity.buyer_count >= 2
-    return new_value >= alert_value or is_cluster
+    if alert.new_value < alert_value and not is_cluster:
+        return "too small"
+    return None
 
 
 def filing_lag_days(filing: Form4) -> int | None:
@@ -162,9 +218,12 @@ def watched_tickers(digest_state: dict[str, Any], sec_state: dict[str, Any], *, 
     watched: dict[str, str] = {}
     digest_cutoff = now - timedelta(days=WATCH_DIGEST_DAYS)
     for alert in digest_state.get("alerts", []):
+        # Only picks actually posted: tracked-but-silent picks (mostly mega-caps) aren't on your radar.
+        if not alert.get("alerted"):
+            continue
         ts = parse_iso(alert["ts"])
         if ts >= digest_cutoff:
-            watched[alert["ticker"]] = f"in the Reddit digest {ts.strftime('%b %-d')}"
+            watched[alert["ticker"]] = f"Reddit alert {ts.strftime('%b %-d')}"
     insider_cutoff = now - timedelta(days=WATCH_INSIDER_DAYS)
     for ticker, raw in sec_state.get("insider_tickers", {}).items():
         ts = parse_iso(raw)
@@ -200,46 +259,71 @@ def build_insider_embed(alert: InsiderAlert, *, today: date) -> dict[str, Any]:
 
     if alert.quote is not None:
         lines.append(format_price_line(alert.quote))
-        prices = [f.buy_avg_price for f in alert.filings if f.buy_avg_price]
-        if prices:
-            insider_price = sum(prices) / len(prices)
-            lines.append(f"↔️ Now {format_pct((alert.quote.price / insider_price - 1) * 100)} vs insider price")
+        if alert.insider_price:
+            lines.append(f"↔️ Now {format_pct((alert.quote.price / alert.insider_price - 1) * 100)} vs insider price")
 
     if alert.reddit is not None:
         mentions, rank = alert.reddit
         lines.append(f"📈 Also on Reddit: {mentions} mentions (rank #{rank})")
 
     latest = max(alert.filings, key=lambda f: f.filed)
+    kind = " · BDC" if alert.activity is not None and alert.activity.kind == ISSUER_BDC else ""
     return {
-        "title": clip(f"🏛 Insider buying — {alert.ticker} ({alert.issuer_name})", EMBED_TITLE_LIMIT),
+        "title": clip(f"🏛 Insider buying — {alert.ticker} ({alert.issuer_name}){kind}", EMBED_TITLE_LIMIT),
         "url": filing_index_url(latest.issuer_cik, latest.accession),
         "color": INSIDER_COLOR,
         "description": clip("\n".join(lines), EMBED_DESCRIPTION_LIMIT),
-        "footer": {"text": f"Form 4 · open-market purchase · filed {latest.filed} · {today.isoformat()}"},
+        "footer": {"text": f"Form 4 · open-market purchase · filed {_filed_when(latest.filed, today)}"},
     }
 
 
-def build_8k_embed(ticker: str, entry: FeedEntry, reason: str) -> dict[str, Any]:
+def _filed_when(filed: str, today: date) -> str:
+    try:
+        days = (today - date.fromisoformat(filed)).days
+    except ValueError:
+        return filed
+    return "today" if days <= 0 else "yesterday" if days == 1 else f"{filed} ({days}d ago)"
+
+
+def build_8k_embed(ticker: str, entries: list[FeedEntry], reason: str, quote: StockQuote | None) -> dict[str, Any]:
+    """One card per ticker, however many 8-Ks it filed since the last run (newest first)."""
+    entries = sorted(entries, key=lambda e: e.updated, reverse=True)
+    latest = entries[0]
+    lines = []
+    for entry in entries:
+        filed = f"{entry.updated:%b %-d %H:%M} UTC"
+        if len(entries) == 1:
+            lines.append(f"**{describe_items(entry.items)}**")
+        else:
+            lines.append(f"• [{describe_items(entry.items)}]({filing_index_url(entry.cik, entry.accession)}) · {filed}")
+    if quote is not None:
+        lines.append(format_price_line(quote, show_range=False))
+    lines.append(f"Watching because: {reason} · [Yahoo]({YAHOO_QUOTE_PAGE_URL.format(symbol=ticker)})")
+    plural = f"{len(entries)} 8-Ks" if len(entries) > 1 else "8-K"
     return {
-        "title": clip(f"📄 8-K — {ticker} ({entry.name})", EMBED_TITLE_LIMIT),
-        "url": filing_index_url(entry.cik, entry.accession),
+        "title": clip(f"📄 {plural} — {ticker} ({latest.name})", EMBED_TITLE_LIMIT),
+        "url": filing_index_url(latest.cik, latest.accession),
         "color": EIGHT_K_COLOR,
-        "description": clip(
-            f"**{describe_items(entry.items)}**\nWatching because: {reason}\n"
-            f"[Yahoo quote]({YAHOO_QUOTE_PAGE_URL.format(symbol=ticker)})",
-            EMBED_DESCRIPTION_LIMIT,
-        ),
-        "footer": {"text": f"Filed {entry.updated.strftime('%Y-%m-%d %H:%M')} UTC"},
+        "description": clip("\n".join(lines), EMBED_DESCRIPTION_LIMIT),
+        "footer": {"text": f"Filed {latest.updated:%Y-%m-%d %H:%M} UTC"},
     }
 
 
 async def scan_feed(sec: SecClient, form: str, *, since: datetime) -> list[FeedEntry]:
     entries: list[FeedEntry] = []
     for page in range(MAX_FEED_PAGES):
-        batch = await sec.current_feed(form, start=page * FEED_PAGE_SIZE, count=FEED_PAGE_SIZE)
+        try:
+            batch = await sec.current_feed(form, start=page * FEED_PAGE_SIZE, count=FEED_PAGE_SIZE)
+        except httpx.HTTPStatusError:
+            # EDGAR stops serving the feed ~5,000 entries deep (503); keep what was read.
+            if page == 0:
+                raise
+            break
         entries.extend(batch)
         if len(batch) < FEED_PAGE_SIZE or min(e.updated for e in batch) < since:
-            break
+            return entries
+    oldest = min((e.updated for e in entries), default=None)
+    print(f"::warning::sec_check: Form {form} feed ends at {oldest}, before {iso(since)}; older filings were skipped.")
     return entries
 
 
@@ -252,10 +336,11 @@ async def find_insider_alerts(
     min_value: float,
     alert_value: float,
     min_price: float,
+    max_trade_age_days: int,
     reddit: dict[str, tuple[int, int]],
 ) -> list[InsiderAlert]:
     parsed = await asyncio.gather(
-        *[sec.fetch_form4(e.cik, e.accession, e.updated.date().isoformat()) for e in entries],
+        *[sec.fetch_form4(e.cik, e.accession, e.updated.astimezone(MARKET_TZ).date().isoformat()) for e in entries],
         return_exceptions=True,
     )
     form4s = [p for p in parsed if isinstance(p, Form4)]
@@ -275,9 +360,14 @@ async def find_insider_alerts(
     alerts: list[InsiderAlert] = []
     for (ticker, filings), activity in zip(by_ticker.items(), activities):
         alert = InsiderAlert(ticker, filings[0].issuer_name, filings, activity, quotes.get(ticker), reddit.get(ticker))
-        # Unknown to Yahoo is allowed (thin OTC names still matter); should_alert skips known pennies and funds.
-        if should_alert(alert.new_value, activity, alert.quote, alert_value=alert_value, min_price=min_price):
+        # Unknown to Yahoo is allowed (thin OTC names still matter); known pennies and funds are skipped.
+        reason = skip_reason(
+            alert, today=today, alert_value=alert_value, min_price=min_price, max_trade_age_days=max_trade_age_days
+        )
+        if reason is None:
             alerts.append(alert)
+        elif reason != "too small":
+            print(f"sec_check: skipped {ticker} ({format_usd(alert.new_value)}): {reason}")
     return sorted(alerts, key=lambda a: a.new_value, reverse=True)
 
 
@@ -294,6 +384,7 @@ async def run() -> None:
     min_value = env_float("SEC_MIN_BUY_USD", 25_000)
     alert_value = env_float("SEC_ALERT_USD", 100_000)
     min_price = env_float("MIN_PRICE", 1.0)
+    max_trade_age_days = env_int("SEC_MAX_TRADE_AGE_DAYS", DEFAULT_MAX_TRADE_AGE_DAYS)
 
     now = datetime.now(UTC)
     since = feed_window_start(sec_state.get("last_check"), now)
@@ -310,10 +401,11 @@ async def run() -> None:
             client,
             sec,
             form4_entries,
-            today=now.date(),
+            today=now.astimezone(MARKET_TZ).date(),
             min_value=min_value,
             alert_value=alert_value,
             min_price=min_price,
+            max_trade_age_days=max_trade_age_days,
             reddit=latest_reddit(digest_state),
         )
 
@@ -325,14 +417,28 @@ async def run() -> None:
             eight_k_entries = new_entries(
                 await scan_feed(sec, "8-K", since=since), since=since, seen=set(seen), role="Filer", form="8-K"
             )
+            by_ticker: dict[str, list[FeedEntry]] = {}
             for entry in eight_k_entries:
                 ticker = cik_to_ticker.get(entry.cik)
                 if ticker and is_notable_8k(entry.items):
-                    eight_k_embeds.append(build_8k_embed(ticker, entry, watched[ticker]))
+                    by_ticker.setdefault(ticker, []).append(entry)
+            quotes = await fetch_stock_quotes(client, list(by_ticker)) if by_ticker else {}
+            eight_k_embeds = [
+                build_8k_embed(ticker, entries, watched[ticker], quotes.get(ticker))
+                for ticker, entries in by_ticker.items()
+            ]
 
-        embeds = [build_insider_embed(a, today=now.date()) for a in insider_alerts] + eight_k_embeds
+        embeds = [build_insider_embed(a, today=now.astimezone(MARKET_TZ).date()) for a in insider_alerts] + eight_k_embeds
         for start in range(0, len(embeds), EMBEDS_PER_MESSAGE):
-            await send_discord(client, {"embeds": fit_embeds(embeds[start : start + EMBEDS_PER_MESSAGE])})
+            payload = {"embeds": fit_embeds(embeds[start : start + EMBEDS_PER_MESSAGE])}
+            if env_bool("DRY_RUN", False):
+                print(json.dumps(payload, indent=1, ensure_ascii=False))
+            else:
+                await send_discord(client, payload)
+
+    if env_bool("DRY_RUN", False):
+        print(f"sec_check: dry run, {len(form4_entries)} Form 4s and {len(eight_k_entries)} 8-Ks since {iso(since)}.")
+        return
 
     stamp = iso(now)
     for entry in [*form4_entries, *eight_k_entries]:
@@ -363,7 +469,7 @@ def main() -> int:
         print(f"error: {exc}", file=sys.stderr)
         return 1
     except httpx.HTTPError as exc:
-        print(f"http error: {exc}", file=sys.stderr)
+        print(f"http error: {exc!r}", file=sys.stderr)
         return 1
     return 0
 

@@ -104,9 +104,12 @@ FORM4_XML = """<?xml version="1.0"?>
 </ownershipDocument>"""
 
 
-def form4_transaction(code: str, shares: float, price: float | None, day: str = "2026-09-21") -> str:
+def form4_transaction(
+    code: str, shares: float, price: float | None, day: str = "2026-09-21", title: str = "Common Stock"
+) -> str:
     price_xml = f"<value>{price}</value>" if price is not None else '<footnoteId id="F1"/>'
     return f"""<nonDerivativeTransaction>
+            <securityTitle><value>{title}</value></securityTitle>
             <transactionDate><value>{day}</value></transactionDate>
             <transactionCoding><transactionCode>{code}</transactionCode></transactionCoding>
             <transactionAmounts>

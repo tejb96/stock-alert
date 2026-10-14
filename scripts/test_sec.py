@@ -13,9 +13,12 @@ from sec import (
     Form4,
     SecActivity,
     describe_items,
+    estimate_next_earnings,
     extract_ownership_xml,
     format_activity_line,
+    is_common_equity,
     is_notable_8k,
+    issuer_kind,
     parse_current_feed,
     parse_form4,
     parse_recent_filings,
@@ -74,6 +77,58 @@ def test_parse_form4_ignores_grants_exercises_and_unpriced():
     assert filing.buy_value == 0
     assert filing.buy_avg_price is None
     assert filing.sell_value == pytest.approx(330_190)
+
+
+def test_parse_form4_counts_only_common_stock():
+    xml = form4_xml(
+        form4_transaction("P", 40_000, 25.00, title="9.25% Series B Cumulative Redeemable Preferred Stock"),
+        form4_transaction("P", 1_000, 17.37, title="BRADESCO PN EJ N1 (Preference shares - BBDC4)"),
+        form4_transaction("P", 500, 10.00, title="Warrants to purchase Common Stock"),
+        form4_transaction("P", 2_000, 4.00, title="Class A Common Stock"),
+    )
+    filing = parse_form4(xml, accession="acc-1", filed="2026-09-22")
+    assert filing is not None
+    assert filing.buy_shares == 2_000
+    assert filing.buy_value == 8_000
+
+
+def test_is_common_equity():
+    assert is_common_equity("Common Stock")
+    assert is_common_equity("American Depositary Shares")
+    assert is_common_equity("Common Units representing limited partner interests")
+    assert is_common_equity(None)
+    assert not is_common_equity("Series A Preferred Stock")
+    assert not is_common_equity("6.5% Senior Notes due 2030")
+
+
+def test_issuer_kind():
+    def refs(*forms):
+        return [FilingRef(form=f, accession=f"a{i}", filed="2026-09-01") for i, f in enumerate(forms)]
+
+    assert issuer_kind(refs("4", "NPORT-P", "N-CSR")) == "fund"
+    assert issuer_kind(refs("10-Q", "N-54A", "4")) == "bdc"
+    assert issuer_kind(refs("10-K", "8-K")) is None
+
+
+def test_estimate_next_earnings():
+    def report(day, items=("2.02", "9.01")):
+        return FilingRef(form="8-K", accession=day, filed=day, items=list(items))
+
+    filings = [
+        report("2026-09-08"),
+        report("2026-08-31", ("1.01", "2.02")),  # pre-announcement alongside a deal
+        report("2026-06-02"),
+        report("2026-03-24"),
+        report("2025-12-09"),
+        report("2025-09-09"),
+        report("2025-11-01", ("8.01",)),
+    ]
+    # Same quarter a year earlier, 52 weeks on (same weekday).
+    assert estimate_next_earnings(filings, today=date(2026, 10, 13)) == date(2026, 12, 8)
+    # Only one report on file: about a quarter after it.
+    assert estimate_next_earnings([report("2026-09-08")], today=date(2026, 10, 13)) == date(2026, 12, 8)
+    assert estimate_next_earnings([report("2025-01-08")], today=date(2026, 10, 13)) is None
+    assert estimate_next_earnings([], today=date(2026, 10, 13)) is None
 
 
 def test_parse_form4_rejects_bad_xml_and_missing_issuer():

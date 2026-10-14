@@ -7,21 +7,26 @@ on:
     - cron: "13,33,53 12-23 * * 1-5"
   workflow_dispatch:
 
+# One run at a time: each pushes run history to the `state` branch.
+concurrency:
+  group: sec-check
+  cancel-in-progress: false
+
 jobs:
   check:
     runs-on: ubuntu-latest
     permissions:
       contents: write # push the seen-filings list to the `state` branch
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Check out run history
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           ref: state
           path: state
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.13"
           cache: pip
@@ -40,6 +45,8 @@ jobs:
           SEC_MIN_BUY_USD: "25000"
           SEC_ALERT_USD: "100000"
           MIN_PRICE: "1"
+          # Skip trades older than this, however late they were reported.
+          SEC_MAX_TRADE_AGE_DAYS: "30"
 
       - name: Save run history
         run: scripts/save_state.sh "sec-check ${{ github.run_id }}"
