@@ -2,16 +2,6 @@
  "buys": [
   {
    "member": "Richard W. Allen",
-   "ticker": "AMD",
-   "traded": "2026-07-14"
-  },
-  {
-   "member": "Richard W. Allen",
-   "ticker": "AVGO",
-   "traded": "2026-07-14"
-  },
-  {
-   "member": "Richard W. Allen",
    "ticker": "AVGO",
    "traded": "2026-08-12"
   },
@@ -471,11 +461,6 @@
    "traded": "2026-08-18"
   },
   {
-   "member": "Jared Moskowitz",
-   "ticker": "AMAT",
-   "traded": "2026-07-13"
-  },
-  {
    "member": "Nancy Pelosi",
    "ticker": "BE",
    "traded": "2026-07-24"
@@ -644,14 +629,197 @@
    "member": "Maria Elvira Salazar",
    "ticker": "SNOW",
    "traded": "2026-09-04"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "ABT",
+   "traded": "2026-09-18"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "AEIS",
+   "traded": "2026-09-29"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "ALKS",
+   "traded": "2026-09-29"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "ALGM",
+   "traded": "2026-09-29"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "APP",
+   "traded": "2026-09-18"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "BCPC",
+   "traded": "2026-09-17"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "BHE",
+   "traded": "2026-10-01"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "CINF",
+   "traded": "2026-09-18"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "CYTK",
+   "traded": "2026-09-29"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "EPAC",
+   "traded": "2026-09-21"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "FSS",
+   "traded": "2026-09-21"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "GTES",
+   "traded": "2026-09-29"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "GMED",
+   "traded": "2026-09-03"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "MOG.A",
+   "traded": "2026-09-17"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "NXPI",
+   "traded": "2026-09-09"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "NXPI",
+   "traded": "2026-09-17"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "ON",
+   "traded": "2026-09-28"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "PRAX",
+   "traded": "2026-09-29"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "STAG",
+   "traded": "2026-09-17"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "TSM",
+   "traded": "2026-09-22"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "TNDM",
+   "traded": "2026-09-29"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "COCO",
+   "traded": "2026-09-17"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "RARE",
+   "traded": "2026-09-29"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "VZ",
+   "traded": "2026-09-18"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "WUXIF",
+   "traded": "2026-09-18"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "YETI",
+   "traded": "2026-09-29"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "ZTS",
+   "traded": "2026-09-18"
+  },
+  {
+   "member": "Rick Larsen",
+   "ticker": "ADI",
+   "traded": "2026-10-08"
+  },
+  {
+   "member": "Rick Larsen",
+   "ticker": "WSM",
+   "traded": "2026-10-08"
+  },
+  {
+   "member": "Lisa McClain",
+   "ticker": "CACI",
+   "traded": "2026-09-14"
+  },
+  {
+   "member": "Lisa McClain",
+   "ticker": "CAT",
+   "traded": "2026-09-28"
+  },
+  {
+   "member": "Lisa McClain",
+   "ticker": "IBRX",
+   "traded": "2026-09-30"
+  },
+  {
+   "member": "Lisa McClain",
+   "ticker": "IBRX",
+   "traded": "2026-09-28"
+  },
+  {
+   "member": "Lisa McClain",
+   "ticker": "MSFT",
+   "traded": "2026-09-30"
+  },
+  {
+   "member": "Lisa McClain",
+   "ticker": "NG",
+   "traded": "2026-09-14"
+  },
+  {
+   "member": "Lisa McClain",
+   "ticker": "OLN",
+   "traded": "2026-09-14"
+  },
+  {
+   "member": "Lisa McClain",
+   "ticker": "RIG",
+   "traded": "2026-09-14"
   }
  ],
  "seen": {
-  "20035130": "2026-08-14",
   "20035143": "2026-08-21",
   "20035190": "2026-09-04",
   "20035191": "2026-08-17",
-  "20035204": "2026-08-14",
   "20035235": "2026-08-17",
   "20035243": "2026-08-27",
   "20035244": "2026-08-25",
@@ -702,6 +870,9 @@
   "20035558": "2026-10-02",
   "20035562": "2026-10-07",
   "20035580": "2026-10-05",
-  "20035590": "2026-10-07"
+  "20035585": "2026-10-12",
+  "20035590": "2026-10-07",
+  "20035622": "2026-10-12",
+  "20035635": "2026-10-12"
  }
 }
