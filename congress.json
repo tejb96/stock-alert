@@ -37,18 +37,8 @@
   },
   {
    "member": "Gilbert Cisneros",
-   "ticker": "AORT",
-   "traded": "2026-07-16"
-  },
-  {
-   "member": "Gilbert Cisneros",
    "ticker": "COIN",
    "traded": "2026-07-17"
-  },
-  {
-   "member": "Gilbert Cisneros",
-   "ticker": "COMP",
-   "traded": "2026-07-16"
   },
   {
    "member": "Gilbert Cisneros",
@@ -57,28 +47,8 @@
   },
   {
    "member": "Gilbert Cisneros",
-   "ticker": "CSW",
-   "traded": "2026-07-16"
-  },
-  {
-   "member": "Gilbert Cisneros",
-   "ticker": "EPAC",
-   "traded": "2026-07-16"
-  },
-  {
-   "member": "Gilbert Cisneros",
-   "ticker": "FERG",
-   "traded": "2026-07-16"
-  },
-  {
-   "member": "Gilbert Cisneros",
    "ticker": "GBCI",
    "traded": "2026-07-21"
-  },
-  {
-   "member": "Gilbert Cisneros",
-   "ticker": "HLI",
-   "traded": "2026-07-16"
   },
   {
    "member": "Gilbert Cisneros",
@@ -117,23 +87,8 @@
   },
   {
    "member": "Gilbert Cisneros",
-   "ticker": "SKWD",
-   "traded": "2026-07-16"
-  },
-  {
-   "member": "Gilbert Cisneros",
-   "ticker": "SFM",
-   "traded": "2026-07-16"
-  },
-  {
-   "member": "Gilbert Cisneros",
    "ticker": "TTD",
    "traded": "2026-07-17"
-  },
-  {
-   "member": "Gilbert Cisneros",
-   "ticker": "PCVX",
-   "traded": "2026-07-16"
   },
   {
    "member": "Gilbert Cisneros",
@@ -857,6 +812,7 @@
   "20035464": "2026-10-01",
   "20035471": "2026-09-17",
   "20035480": "2026-09-18",
+  "20035487": "2026-10-14",
   "20035489": "2026-09-22",
   "20035491": "2026-09-25",
   "20035492": "2026-09-22",
@@ -871,6 +827,7 @@
   "20035562": "2026-10-07",
   "20035580": "2026-10-05",
   "20035585": "2026-10-12",
+  "20035588": "2026-10-13",
   "20035590": "2026-10-07",
   "20035622": "2026-10-12",
   "20035635": "2026-10-12"
