@@ -17,33 +17,8 @@
   },
   {
    "member": "Gilbert Cisneros",
-   "ticker": "ACN",
-   "traded": "2026-07-17"
-  },
-  {
-   "member": "Gilbert Cisneros",
-   "ticker": "AMD",
-   "traded": "2026-07-17"
-  },
-  {
-   "member": "Gilbert Cisneros",
    "ticker": "ALKS",
    "traded": "2026-07-30"
-  },
-  {
-   "member": "Gilbert Cisneros",
-   "ticker": "APP",
-   "traded": "2026-07-17"
-  },
-  {
-   "member": "Gilbert Cisneros",
-   "ticker": "COIN",
-   "traded": "2026-07-17"
-  },
-  {
-   "member": "Gilbert Cisneros",
-   "ticker": "CRWD",
-   "traded": "2026-07-17"
   },
   {
    "member": "Gilbert Cisneros",
@@ -52,28 +27,8 @@
   },
   {
    "member": "Gilbert Cisneros",
-   "ticker": "MRVL",
-   "traded": "2026-07-17"
-  },
-  {
-   "member": "Gilbert Cisneros",
    "ticker": "MSB",
    "traded": "2026-07-31"
-  },
-  {
-   "member": "Gilbert Cisneros",
-   "ticker": "MSFT",
-   "traded": "2026-07-17"
-  },
-  {
-   "member": "Gilbert Cisneros",
-   "ticker": "NVDA",
-   "traded": "2026-07-17"
-  },
-  {
-   "member": "Gilbert Cisneros",
-   "ticker": "PLTR",
-   "traded": "2026-07-17"
   },
   {
    "member": "Gilbert Cisneros",
@@ -84,16 +39,6 @@
    "member": "Gilbert Cisneros",
    "ticker": "SAIL",
    "traded": "2026-07-21"
-  },
-  {
-   "member": "Gilbert Cisneros",
-   "ticker": "TTD",
-   "traded": "2026-07-17"
-  },
-  {
-   "member": "Gilbert Cisneros",
-   "ticker": "WDC",
-   "traded": "2026-07-17"
   },
   {
    "member": "Gilbert Cisneros",
@@ -769,6 +714,11 @@
    "member": "Lisa McClain",
    "ticker": "RIG",
    "traded": "2026-09-14"
+  },
+  {
+   "member": "Richard Dean Dr McCormick",
+   "ticker": "BRK.B",
+   "traded": "2026-09-18"
   }
  ],
  "seen": {
@@ -830,6 +780,10 @@
   "20035588": "2026-10-13",
   "20035590": "2026-10-07",
   "20035622": "2026-10-12",
-  "20035635": "2026-10-12"
+  "20035627": "2026-10-14",
+  "20035635": "2026-10-12",
+  "20035648": "2026-10-14",
+  "20035651": "2026-10-14",
+  "20035652": "2026-10-14"
  }
 }
