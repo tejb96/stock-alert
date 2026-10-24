@@ -353,17 +353,7 @@
   {
    "member": "Nancy Pelosi",
    "ticker": "BE",
-   "traded": "2026-07-24"
-  },
-  {
-   "member": "Nancy Pelosi",
-   "ticker": "BE",
    "traded": "2026-07-28"
-  },
-  {
-   "member": "Nancy Pelosi",
-   "ticker": "INTC",
-   "traded": "2026-07-24"
   },
   {
    "member": "Michael Rulli",
@@ -744,6 +734,16 @@
    "member": "Jonathan Jackson",
    "ticker": "GH",
    "traded": "2026-09-28"
+  },
+  {
+   "member": "Cleo Fields",
+   "ticker": "NVDA",
+   "traded": "2026-10-01"
+  },
+  {
+   "member": "Cleo Fields",
+   "ticker": "TSM",
+   "traded": "2026-10-09"
   }
  ],
  "seen": {
@@ -805,8 +805,10 @@
   "20035651": "2026-10-14",
   "20035652": "2026-10-14",
   "20035660": "2026-10-15",
+  "20035669": "2026-10-22",
   "20035671": "2026-10-19",
   "20035687": "2026-10-20",
-  "20035691": "2026-10-20"
+  "20035691": "2026-10-20",
+  "20035700": "2026-10-22"
  }
 }
