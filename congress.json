@@ -719,6 +719,26 @@
    "member": "Cleo Fields",
    "ticker": "TSM",
    "traded": "2026-10-09"
+  },
+  {
+   "member": "David J. Taylor",
+   "ticker": "T",
+   "traded": "2026-10-15"
+  },
+  {
+   "member": "David J. Taylor",
+   "ticker": "LRCX",
+   "traded": "2026-10-15"
+  },
+  {
+   "member": "David J. Taylor",
+   "ticker": "PLD",
+   "traded": "2026-10-15"
+  },
+  {
+   "member": "David J. Taylor",
+   "ticker": "RPM",
+   "traded": "2026-10-15"
   }
  ],
  "seen": {
@@ -786,6 +806,7 @@
   "20035700": "2026-10-22",
   "20035710": "2026-10-28",
   "20035714": "2026-10-27",
-  "20035715": "2026-10-27"
+  "20035715": "2026-10-27",
+  "20035727": "2026-10-29"
  }
 }
