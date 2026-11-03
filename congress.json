@@ -27,11 +27,6 @@
   },
   {
    "member": "Gilbert Cisneros",
-   "ticker": "APG",
-   "traded": "2026-08-04"
-  },
-  {
-   "member": "Gilbert Cisneros",
    "ticker": "AORT",
    "traded": "2026-08-20"
   },
@@ -172,16 +167,6 @@
   },
   {
    "member": "April McClain Delaney",
-   "ticker": "BWXT",
-   "traded": "2026-08-03"
-  },
-  {
-   "member": "April McClain Delaney",
-   "ticker": "CHRW",
-   "traded": "2026-08-03"
-  },
-  {
-   "member": "April McClain Delaney",
    "ticker": "CHRW",
    "traded": "2026-08-14"
   },
@@ -222,11 +207,6 @@
   },
   {
    "member": "April McClain Delaney",
-   "ticker": "HUBB",
-   "traded": "2026-08-03"
-  },
-  {
-   "member": "April McClain Delaney",
    "ticker": "FWONK",
    "traded": "2026-08-07"
   },
@@ -234,16 +214,6 @@
    "member": "April McClain Delaney",
    "ticker": "FWONK",
    "traded": "2026-08-24"
-  },
-  {
-   "member": "April McClain Delaney",
-   "ticker": "FWONK",
-   "traded": "2026-08-03"
-  },
-  {
-   "member": "April McClain Delaney",
-   "ticker": "LTH",
-   "traded": "2026-08-03"
   },
   {
    "member": "April McClain Delaney",
@@ -739,17 +709,35 @@
    "member": "David J. Taylor",
    "ticker": "RPM",
    "traded": "2026-10-15"
+  },
+  {
+   "member": "Thomas H. Kean",
+   "ticker": "ESAB",
+   "traded": "2026-09-29"
+  },
+  {
+   "member": "Thomas H. Kean",
+   "ticker": "TXN",
+   "traded": "2026-09-17"
+  },
+  {
+   "member": "John J Mr McGuire",
+   "ticker": "MU",
+   "traded": "2026-09-24"
+  },
+  {
+   "member": "John J Mr McGuire",
+   "ticker": "MU",
+   "traded": "2026-09-25"
+  },
+  {
+   "member": "John J Mr McGuire",
+   "ticker": "MU",
+   "traded": "2026-10-01"
   }
  ],
  "seen": {
   "20035190": "2026-09-04",
-  "20035326": "2026-09-01",
-  "20035345": "2026-09-02",
-  "20035349": "2026-09-01",
-  "20035350": "2026-09-01",
-  "20035365": "2026-09-02",
-  "20035367": "2026-09-02",
-  "20035370": "2026-09-03",
   "20035390": "2026-09-10",
   "20035392": "2026-09-05",
   "20035400": "2026-09-14",
@@ -769,6 +757,7 @@
   "20035464": "2026-10-01",
   "20035471": "2026-09-17",
   "20035480": "2026-09-18",
+  "20035484": "2026-11-01",
   "20035487": "2026-10-14",
   "20035489": "2026-09-22",
   "20035490": "2026-10-16",
@@ -790,6 +779,7 @@
   "20035585": "2026-10-12",
   "20035588": "2026-10-13",
   "20035590": "2026-10-07",
+  "20035591": "2026-10-30",
   "20035622": "2026-10-12",
   "20035627": "2026-10-14",
   "20035635": "2026-10-12",
@@ -807,6 +797,8 @@
   "20035710": "2026-10-28",
   "20035714": "2026-10-27",
   "20035715": "2026-10-27",
-  "20035727": "2026-10-29"
+  "20035727": "2026-10-29",
+  "20035734": "2026-10-30",
+  "20035743": "2026-11-01"
  }
 }
