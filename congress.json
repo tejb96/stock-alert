@@ -223,11 +223,6 @@
   {
    "member": "April McClain Delaney",
    "ticker": "LTH",
-   "traded": "2026-08-06"
-  },
-  {
-   "member": "April McClain Delaney",
-   "ticker": "LTH",
    "traded": "2026-08-07"
   },
   {
@@ -272,18 +267,8 @@
   },
   {
    "member": "Josh Gottheimer",
-   "ticker": "AMAT",
-   "traded": "2026-08-06"
-  },
-  {
-   "member": "Josh Gottheimer",
    "ticker": "MSFT",
    "traded": "2026-08-14"
-  },
-  {
-   "member": "Josh Gottheimer",
-   "ticker": "QSR",
-   "traded": "2026-08-06"
   },
   {
    "member": "Thomas H. Kean",
@@ -734,11 +719,15 @@
    "member": "John J Mr McGuire",
    "ticker": "MU",
    "traded": "2026-10-01"
+  },
+  {
+   "member": "Robert E. Latta",
+   "ticker": "FMAO",
+   "traded": "2026-10-20"
   }
  ],
  "seen": {
   "20035390": "2026-09-10",
-  "20035392": "2026-09-05",
   "20035400": "2026-09-14",
   "20035401": "2026-09-08",
   "20035403": "2026-09-08",
@@ -799,6 +788,7 @@
   "20035727": "2026-10-29",
   "20035734": "2026-10-30",
   "20035743": "2026-11-01",
-  "20035751": "2026-11-02"
+  "20035751": "2026-11-02",
+  "20035763": "2026-11-03"
  }
 }
