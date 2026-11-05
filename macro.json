@@ -1,6 +1,8 @@
 {
- "active": [],
+ "active": [
+  "vol_shock"
+ ],
  "fired": {
-  "vol_shock": "2026-10-16"
+  "vol_shock": "2026-11-05"
  }
 }
