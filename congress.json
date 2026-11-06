@@ -87,11 +87,6 @@
   },
   {
    "member": "Gilbert Cisneros",
-   "ticker": "HLI",
-   "traded": "2026-08-07"
-  },
-  {
-   "member": "Gilbert Cisneros",
    "ticker": "PODD",
    "traded": "2026-08-18"
   },
@@ -112,16 +107,6 @@
   },
   {
    "member": "Gilbert Cisneros",
-   "ticker": "MOG.A",
-   "traded": "2026-08-07"
-  },
-  {
-   "member": "Gilbert Cisneros",
-   "ticker": "NEO",
-   "traded": "2026-08-07"
-  },
-  {
-   "member": "Gilbert Cisneros",
    "ticker": "PWR",
    "traded": "2026-08-27"
   },
@@ -129,16 +114,6 @@
    "member": "Gilbert Cisneros",
    "ticker": "SHAK",
    "traded": "2026-08-11"
-  },
-  {
-   "member": "Gilbert Cisneros",
-   "ticker": "SKHY",
-   "traded": "2026-08-07"
-  },
-  {
-   "member": "Gilbert Cisneros",
-   "ticker": "SNOW",
-   "traded": "2026-08-07"
   },
   {
    "member": "Gilbert Cisneros",
@@ -208,22 +183,12 @@
   {
    "member": "April McClain Delaney",
    "ticker": "FWONK",
-   "traded": "2026-08-07"
-  },
-  {
-   "member": "April McClain Delaney",
-   "ticker": "FWONK",
    "traded": "2026-08-24"
   },
   {
    "member": "April McClain Delaney",
    "ticker": "LTH",
    "traded": "2026-08-24"
-  },
-  {
-   "member": "April McClain Delaney",
-   "ticker": "LTH",
-   "traded": "2026-08-07"
   },
   {
    "member": "April McClain Delaney",
@@ -284,16 +249,6 @@
    "member": "John J Mr McGuire",
    "ticker": "NVDA",
    "traded": "2026-08-18"
-  },
-  {
-   "member": "Michael Rulli",
-   "ticker": "EQIX",
-   "traded": "2026-08-07"
-  },
-  {
-   "member": "Maria Elvira Salazar",
-   "ticker": "BRK.B",
-   "traded": "2026-08-07"
   },
   {
    "member": "Maria Elvira Salazar",
@@ -724,6 +679,16 @@
    "member": "Robert E. Latta",
    "ticker": "FMAO",
    "traded": "2026-10-20"
+  },
+  {
+   "member": "Maria Elvira Salazar",
+   "ticker": "NVDA",
+   "traded": "2026-10-23"
+  },
+  {
+   "member": "Maria Elvira Salazar",
+   "ticker": "PG",
+   "traded": "2026-10-23"
   }
  ],
  "seen": {
@@ -776,6 +741,7 @@
   "20035651": "2026-10-14",
   "20035652": "2026-10-14",
   "20035660": "2026-10-15",
+  "20035662": "2026-11-05",
   "20035669": "2026-10-22",
   "20035671": "2026-10-19",
   "20035687": "2026-10-20",
@@ -789,6 +755,8 @@
   "20035734": "2026-10-30",
   "20035743": "2026-11-01",
   "20035751": "2026-11-02",
-  "20035763": "2026-11-03"
+  "20035763": "2026-11-03",
+  "20035765": "2026-11-04",
+  "20035778": "2026-11-05"
  }
 }
