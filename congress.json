@@ -689,6 +689,16 @@
    "member": "Maria Elvira Salazar",
    "ticker": "PG",
    "traded": "2026-10-23"
+  },
+  {
+   "member": "Josh Gottheimer",
+   "ticker": "AMAT",
+   "traded": "2026-10-26"
+  },
+  {
+   "member": "Josh Gottheimer",
+   "ticker": "BHE",
+   "traded": "2026-10-12"
   }
  ],
  "seen": {
@@ -757,6 +767,7 @@
   "20035751": "2026-11-02",
   "20035763": "2026-11-03",
   "20035765": "2026-11-04",
+  "20035770": "2026-11-05",
   "20035778": "2026-11-05"
  }
 }
