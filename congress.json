@@ -1,16 +1,6 @@
 {
  "buys": [
   {
-   "member": "Richard W. Allen",
-   "ticker": "AVGO",
-   "traded": "2026-08-12"
-  },
-  {
-   "member": "Richard W. Allen",
-   "ticker": "TSM",
-   "traded": "2026-08-12"
-  },
-  {
    "member": "Ed Case",
    "ticker": "AAPL",
    "traded": "2026-08-13"
@@ -142,11 +132,6 @@
   },
   {
    "member": "April McClain Delaney",
-   "ticker": "CHRW",
-   "traded": "2026-08-12"
-  },
-  {
-   "member": "April McClain Delaney",
    "ticker": "ESE",
    "traded": "2026-08-24"
   },
@@ -194,11 +179,6 @@
    "member": "Lloyd Doggett",
    "ticker": "PG",
    "traded": "2026-08-17"
-  },
-  {
-   "member": "Byron Donalds",
-   "ticker": "NFLX",
-   "traded": "2026-08-12"
   },
   {
    "member": "Cleo Fields",
@@ -249,11 +229,6 @@
    "member": "Maria Elvira Salazar",
    "ticker": "MRNA",
    "traded": "2026-08-19"
-  },
-  {
-   "member": "Maria Elvira Salazar",
-   "ticker": "SPCX",
-   "traded": "2026-08-12"
   },
   {
    "member": "David J. Taylor",
@@ -682,6 +657,8 @@
   }
  ],
  "seen": {
+  "20024921": "2026-11-09",
+  "20035014": "2026-11-09",
   "20035400": "2026-09-14",
   "20035420": "2026-09-15",
   "20035431": "2026-09-12",
