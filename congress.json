@@ -1,11 +1,6 @@
 {
  "buys": [
   {
-   "member": "Ed Case",
-   "ticker": "AAPL",
-   "traded": "2026-08-13"
-  },
-  {
    "member": "Gilbert Cisneros",
    "ticker": "AGIO",
    "traded": "2026-08-20"
@@ -179,11 +174,6 @@
    "member": "Lloyd Doggett",
    "ticker": "PG",
    "traded": "2026-08-17"
-  },
-  {
-   "member": "Cleo Fields",
-   "ticker": "AAPL",
-   "traded": "2026-08-13"
   },
   {
    "member": "Scott Scott Franklin",
@@ -654,6 +644,156 @@
    "member": "Josh Gottheimer",
    "ticker": "BHE",
    "traded": "2026-10-12"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "ARE",
+   "traded": "2026-10-20"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "LNT",
+   "traded": "2026-10-20"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "ARGX",
+   "traded": "2026-10-15"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "ARGX",
+   "traded": "2026-10-14"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "ARGX",
+   "traded": "2026-10-27"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "BNS",
+   "traded": "2026-10-09"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "BBIO",
+   "traded": "2026-10-27"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "BBIO",
+   "traded": "2026-11-02"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "CF",
+   "traded": "2026-10-20"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "CSCO",
+   "traded": "2026-10-20"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "CMS",
+   "traded": "2026-10-20"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "CMCSA",
+   "traded": "2026-10-20"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "EIX",
+   "traded": "2026-10-20"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "LLY",
+   "traded": "2026-10-20"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "FIS",
+   "traded": "2026-10-20"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "FOXA",
+   "traded": "2026-10-20"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "PODD",
+   "traded": "2026-10-20"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "LITE",
+   "traded": "2026-10-20"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "MTSI",
+   "traded": "2026-10-27"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "META",
+   "traded": "2026-10-09"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "MBGL",
+   "traded": "2026-10-15"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "MRNA",
+   "traded": "2026-10-20"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "MRAAF",
+   "traded": "2026-10-08"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "ON",
+   "traded": "2026-10-14"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "NOW",
+   "traded": "2026-10-21"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "SNEJF",
+   "traded": "2026-10-14"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "SARO",
+   "traded": "2026-10-14"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "TXRH",
+   "traded": "2026-10-16"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "COO",
+   "traded": "2026-10-14"
+  },
+  {
+   "member": "Gilbert Cisneros",
+   "ticker": "WFC",
+   "traded": "2026-10-20"
   }
  ],
  "seen": {
@@ -661,11 +801,8 @@
   "20035014": "2026-11-09",
   "20035400": "2026-09-14",
   "20035420": "2026-09-15",
-  "20035431": "2026-09-12",
   "20035432": "2026-09-14",
   "20035434": "2026-09-21",
-  "20035444": "2026-09-12",
-  "20035445": "2026-09-12",
   "20035450": "2026-09-17",
   "20035455": "2026-09-14",
   "20035464": "2026-10-01",
@@ -721,6 +858,8 @@
   "20035770": "2026-11-05",
   "20035775": "2026-11-06",
   "20035778": "2026-11-05",
-  "20035780": "2026-11-06"
+  "20035780": "2026-11-06",
+  "20035788": "2026-11-10",
+  "20035806": "2026-11-10"
  }
 }
