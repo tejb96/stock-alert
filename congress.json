@@ -122,11 +122,6 @@
   },
   {
    "member": "April McClain Delaney",
-   "ticker": "CHRW",
-   "traded": "2026-08-14"
-  },
-  {
-   "member": "April McClain Delaney",
    "ticker": "ESE",
    "traded": "2026-08-24"
   },
@@ -149,11 +144,6 @@
    "member": "April McClain Delaney",
    "ticker": "HUBB",
    "traded": "2026-08-18"
-  },
-  {
-   "member": "April McClain Delaney",
-   "ticker": "HUBB",
-   "traded": "2026-08-14"
   },
   {
    "member": "April McClain Delaney",
@@ -196,11 +186,6 @@
    "traded": "2026-08-26"
   },
   {
-   "member": "Josh Gottheimer",
-   "ticker": "MSFT",
-   "traded": "2026-08-14"
-  },
-  {
    "member": "Thomas H. Kean",
    "ticker": "MTZ",
    "traded": "2026-08-21"
@@ -219,11 +204,6 @@
    "member": "Maria Elvira Salazar",
    "ticker": "MRNA",
    "traded": "2026-08-19"
-  },
-  {
-   "member": "David J. Taylor",
-   "ticker": "IBP",
-   "traded": "2026-08-14"
   },
   {
    "member": "David J. Taylor",
@@ -794,6 +774,11 @@
    "member": "Gilbert Cisneros",
    "ticker": "WFC",
    "traded": "2026-10-20"
+  },
+  {
+   "member": "Lloyd Doggett",
+   "ticker": "KO",
+   "traded": "2026-10-01"
   }
  ],
  "seen": {
@@ -860,6 +845,8 @@
   "20035778": "2026-11-05",
   "20035780": "2026-11-06",
   "20035788": "2026-11-10",
-  "20035806": "2026-11-10"
+  "20035806": "2026-11-10",
+  "20035821": "2026-11-11",
+  "20035826": "2026-11-11"
  }
 }
