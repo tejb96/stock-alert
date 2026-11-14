@@ -2,9 +2,11 @@ name: Market alarms
 
 on:
   schedule:
-    # Hourly at :27, 13:27–21:27 UTC on weekdays: US market hours plus the close (summer and winter).
+    # Hourly at :27, 13:27–21:27 UTC on weekdays. Alerts are judged on completed daily bars, so only
+    # a run after 16:20 New York (20:27 UTC in summer, 21:27 in winter) posts for the day. GitHub
+    # drops most scheduled runs; the earlier slots are there to post a close an evening run missed.
     - cron: "27 13-21 * * 1-5"
-    # Sunday evening after FX reopens (21:00 UTC): yen moves over a weekend show up before stocks open.
+    # Sunday evening: a second chance at Friday's close.
     - cron: "27 22,23 * * 0"
   workflow_dispatch:
 
@@ -36,7 +38,7 @@ jobs:
       - name: Install dependencies
         run: pip install -r scripts/requirements.txt
 
-      - name: Check crash alarms and bottom signals
+      - name: Post what changed at the last close
         run: python scripts/macro_check.py
         env:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}

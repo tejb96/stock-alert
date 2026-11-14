@@ -1,11 +1,13 @@
 """Market-wide crash alarms and bottom signals from free Yahoo and FRED daily data.
 
 Bear signals flag the stresses behind past crashes: yen carry unwinds, volatility shocks, credit,
-funding and bank stress, rate shocks. Bull signals flag the washouts and recoveries that marked
-bottoms: volatility capitulation, fear normalizing, credit healing, the yen stabilizing.
+funding and bank stress, rate shocks. They fire late, so one watch signal flags two of those
+stresses starting together while stocks are still near their highs. Bull signals flag the washouts
+and recoveries that marked bottoms: volatility capitulation, fear normalizing, credit healing, the
+yen stabilizing.
 
-Every signal is a pure function of the history up to a given day, so the same code runs live
-(where the last bar is the session in progress) and in the backtest.
+Every signal is a pure function of the history up to a given day, so the same code runs live and
+in the backtest. Both judge completed daily bars: as_of() is the view at a day's close.
 """
 
 from __future__ import annotations
@@ -47,13 +49,23 @@ FETCH_CONCURRENCY = 6
 # FRED publishes each observation the next business day, so at a day's close the newest print a
 # live run can have seen is the previous day's. as_of() holds FRED series back to match.
 FRED_LAG_DAYS = 1
+FRED_STALE_DAYS = 7  # a FRED series this far behind is treated as missing
 # A live run fetches a year of daily bars; as_of() gives every replayed day the same view.
 LIVE_BARS = 252
 INTRADAY_INTERVAL = "60m"
 INTRADAY_RANGE = "730d"  # the most history Yahoo serves at this interval
 
 BEAR = "bear"
+WATCH = "watch"
 BULL = "bull"
+SIDES = (BEAR, WATCH, BULL)
+
+# Early warning: two stresses at once while stocks are still near their highs. Chosen on data
+# through 2019 (see the README); it fires about 3% below the high where the crash alarms average 9%.
+EARLY_TERM = 0.95  # VIX9D / VIX3M out of its normal shape (TERM_NORMAL), well short of inverted
+EARLY_CREDIT_10D = -1.5  # % — HYG / IEF
+EARLY_NEAR_HIGH = 5.0  # % — SPY within this of its high over EARLY_HIGH_DAYS
+EARLY_HIGH_DAYS = 60
 
 # Bear thresholds.
 CARRY_USDJPY_5D = -3.0  # % — yen strengthening this fast forces carry positions shut
@@ -108,6 +120,25 @@ IntradayBar = tuple[datetime, float, float]
 Intraday = dict[str, tuple[IntradayBar, ...]]
 
 
+def signed(value: float, spec: str) -> str:
+    """format(), without printing a value that rounds to zero as -0.0."""
+    shown = format(value, spec)
+    return shown.replace("-", "+" if "+" in spec else "") if float(shown) == 0 else shown
+
+
+@dataclass(frozen=True)
+class Reading:
+    """One number behind a signal, kept so a later alert can say how it has moved."""
+
+    label: str
+    value: float
+    spec: str = ".2f"
+    unit: str = ""
+
+    def text(self, value: float | None = None) -> str:
+        return f"{signed(self.value if value is None else value, self.spec)}{self.unit}"
+
+
 @dataclass(frozen=True)
 class Signal:
     key: str
@@ -115,6 +146,10 @@ class Signal:
     title: str
     lines: tuple[str, ...]
     context: str
+    # How far past its trigger: 1.0 is exactly on the threshold. Compared between alerts of the
+    # same signal to tell when one has got materially worse.
+    severity: float = 1.0
+    readings: tuple[Reading, ...] = ()
 
 
 # --- series math -------------------------------------------------------------------------------
@@ -163,6 +198,15 @@ def realized_vol(s: Series | None, n: int, *, periods_per_year: int = 252) -> fl
     return statistics.stdev(returns) * math.sqrt(periods_per_year) * 100
 
 
+def beyond(value: float | None, threshold: float) -> float:
+    """A reading as a multiple of its threshold; 0 when there is no reading."""
+    return value / threshold if value is not None else 0.0
+
+
+def readings(*items: tuple[str, float | None, str, str]) -> tuple[Reading, ...]:
+    return tuple(Reading(label, value, spec, unit) for label, value, spec, unit in items if value is not None)
+
+
 # --- bear signals ------------------------------------------------------------------------------
 
 
@@ -180,12 +224,15 @@ def carry_unwind(m: Market) -> Signal | None:
         hits.append(f"USD/JPY 10d realized vol **{vol:.0f}%** (normal 7–10%)")
     if len(hits) < CARRY_MIN_HITS:
         return None
+    legs = sorted((beyond(usd5, CARRY_USDJPY_5D), beyond(aud5, CARRY_AUDJPY_5D), beyond(vol, CARRY_FX_VOL)), reverse=True)
     return Signal(
         "carry_unwind",
         BEAR,
         "Yen carry trade unwinding",
         tuple(hits),
         "Aug 2024: USD/JPY 161→142 in 4 weeks, Nikkei −12% in a day, VIX 65 intraday.",
+        severity=legs[CARRY_MIN_HITS - 1],  # the weakest leg that still counts
+        readings=readings(("USD/JPY 5d", usd5, "+.1f", "%"), ("AUD/JPY 5d", aud5, "+.1f", "%"), ("USD/JPY vol", vol, ".0f", "%")),
     )
 
 
@@ -201,12 +248,15 @@ def vol_shock(m: Market) -> Signal | None:
         hits.append(f"VIX curve inverted: 9-day / 3-month **{term.last:.2f}** — near-term panic priced above later")
     if not hits:
         return None
+    inversion = min(beyond(term.last, TERM_INVERTED), beyond(vix.last, VIX_INVERSION_FLOOR)) if term is not None else 0.0
     return Signal(
         "vol_shock",
         BEAR,
         "Volatility shock",
         tuple(hits),
         "Leveraged vol sellers and risk-parity funds de-risk mechanically when this hits (Feb 2018, Mar 2020, Aug 2024).",
+        severity=max(beyond(vix.last, VIX_PANIC), inversion),
+        readings=readings(("VIX", vix.last, ".1f", ""), ("9-day/3-month", term.last if term is not None else None, ".2f", "")),
     )
 
 
@@ -226,7 +276,9 @@ def credit_stress(m: Market) -> Signal | None:
         BEAR,
         "Credit stress",
         tuple(hits),
-        "Credit usually cracks before stocks do — lenders see defaults coming first.",
+        "Lenders are pricing in defaults. Stocks have usually fallen by the time this fires: it confirms stress, it doesn't lead it.",
+        severity=max(beyond(hyg_ief, CREDIT_HYG_IEF_10D), beyond(widening, CREDIT_OAS_20D)),
+        readings=readings(("HYG/IEF 10d", hyg_ief, "+.1f", "%"), ("High-yield spread", oas.last if oas is not None and len(oas) else None, ".2f", "%")),
     )
 
 
@@ -243,6 +295,8 @@ def funding_stress(m: Market) -> Signal | None:
         "Repo funding stress",
         (f"SOFR **{avg * 100:+.0f}bp** above interest on reserves (3-day avg) — cash is scarce overnight",),
         "Sep 2019: repo rates spiked to 10% and the Fed had to inject liquidity within days.",
+        severity=beyond(avg, FUNDING_SOFR_IORB),
+        readings=readings(("SOFR over IORB", avg * 100, "+.0f", "bp")),
     )
 
 
@@ -256,6 +310,8 @@ def bank_stress(m: Market) -> Signal | None:
         "Regional bank stress",
         (f"Regional banks (KRE) **{format_pct(rel)}** vs S&P 500 in 5d",),
         "Mar 2023: SVB and Signature failed within a week of KRE breaking down.",
+        severity=beyond(rel, BANK_KRE_SPY_5D),
+        readings=readings(("KRE vs SPY 5d", rel, "+.1f", "%")),
     )
 
 
@@ -270,12 +326,42 @@ def rates_shock(m: Market) -> Signal | None:
         hits.append(f"Bond volatility (MOVE) **{move.last:.0f}**")
     if not hits:
         return None
+    has_move = move is not None and len(move)
     return Signal(
         "rates_shock",
         BEAR,
         "Rates shock",
         tuple(hits),
         "Fast yield spikes reprice every asset at once (Oct 2023, UK gilts Sep 2022, Apr 2025).",
+        severity=max(beyond(jump, RATES_10Y_5D), beyond(move.last if has_move else None, MOVE_PANIC)),
+        readings=readings(("10y yield", tenyear.last if jump is not None else None, ".2f", "%"), ("MOVE", move.last if has_move else None, ".0f", "")),
+    )
+
+
+# --- early warning -----------------------------------------------------------------------------
+
+
+def stress_building(m: Market) -> Signal | None:
+    term = ratio(m.get("VIX9D"), m.get("VIX3M"))
+    credit = change_pct(ratio(m.get("HYG"), m.get("IEF")), 10)
+    spy = m.get("SPY")
+    if term is None or credit is None or spy is None or len(spy) < EARLY_HIGH_DAYS:
+        return None
+    off_high = (spy.last / max(spy.values[-EARLY_HIGH_DAYS:]) - 1) * 100
+    if term.last < EARLY_TERM or credit > EARLY_CREDIT_10D or off_high < -EARLY_NEAR_HIGH:
+        return None
+    return Signal(
+        "stress_building",
+        WATCH,
+        "Stress building near the highs",
+        (
+            f"VIX curve flattening: 9-day / 3-month **{term.last:.2f}** (normal is below {EARLY_TERM})",
+            f"Junk bonds vs Treasuries (HYG/IEF) **{format_pct(credit)}** in 10d",
+            f"SPY still only {format_pct(off_high)} from its 3-month high",
+        ),
+        "Options and credit are both flinching while stocks have barely moved. Earlier than the crash alarms, and wrong about half the time.",
+        severity=min(beyond(term.last, EARLY_TERM), beyond(credit, EARLY_CREDIT_10D)),
+        readings=readings(("9-day/3-month", term.last, ".2f", ""), ("HYG/IEF 10d", credit, "+.1f", "%")),
     )
 
 
@@ -304,6 +390,7 @@ def vol_capitulation(m: Market) -> Signal | None:
         "Volatility capitulation",
         (f"VIX spiked to **{high:.1f}** then fell back to {vix.last:.1f} ({(vix.last / high - 1) * 100:.0f}% off the high)",),
         "Panic got sold into — Aug 5 2024 (65→38) and Mar 2020 lows. Often the washout day, not yet the all-clear.",
+        readings=readings(("VIX", vix.last, ".1f", "")),
     )
 
 
@@ -323,7 +410,8 @@ def vol_normalizing(m: Market) -> Signal | None:
             f"VIX curve back to normal: 9-day / 3-month **{term.last:.2f}** after the volatility shock alarm",
             f"VIX {vix.last:.1f}, {(vix.last / peak - 1) * 100:.0f}% off its 20-day peak of {peak:.1f}",
         ),
-        "The classic 'panic is over' tell — shorts opened into the spike have usually made their money by now.",
+        "The 'panic is over' tell. It confirms a low more than it catches one: most of the first bounce is usually gone.",
+        readings=readings(("VIX", vix.last, ".1f", ""), ("9-day/3-month", term.last, ".2f", "")),
     )
 
 
@@ -340,7 +428,8 @@ def credit_healing(m: Market) -> Signal | None:
         BULL,
         "Credit healing",
         (f"Junk bonds vs Treasuries (HYG/IEF) **{format_pct(bounce)}** off their 20-day low after the credit stress alarm",),
-        "Credit leads stocks on the way down and on the way up — lenders returning is a durable bottom sign.",
+        "Lenders are coming back. On its own this has not marked durable lows — see its record.",
+        readings=readings(("HYG/IEF off its low", bounce, "+.1f", "%")),
     )
 
 
@@ -355,6 +444,7 @@ def carry_stabilized(m: Market) -> Signal | None:
         "Yen carry stabilizing",
         (f"USD/JPY **{format_pct(now)}** in 5d ({usdjpy.last:.2f}) after the carry unwind alarm",),
         "Forced yen buying is exhausted — in Aug 2024 stocks bottomed as USD/JPY stopped falling.",
+        readings=readings(("USD/JPY", usdjpy.last, ".2f", "")),
     )
 
 
@@ -365,6 +455,7 @@ CHECKS: tuple[Callable[[Market], Signal | None], ...] = (
     funding_stress,
     bank_stress,
     rates_shock,
+    stress_building,
     vol_capitulation,
     vol_normalizing,
     credit_healing,
@@ -372,32 +463,50 @@ CHECKS: tuple[Callable[[Market], Signal | None], ...] = (
 )
 
 
-# The series a signal cannot fire without. The backtest counts a signal's quiet years from where
-# these begin; legs on shorter series (the 9-day VIX, the FRED spread) join in when theirs do.
-SIGNAL_SERIES = {
-    "carry_unwind": ("USDJPY",),
-    "vol_shock": ("VIX",),
-    "credit_stress": ("HYG", "IEF"),
-    "funding_stress": ("SOFR", "IORB"),
-    "bank_stress": ("KRE", "SPY"),
-    "rates_shock": ("DGS10",),
-    "vol_capitulation": ("VIX",),
-    "vol_normalizing": ("VIX", "VIX9D", "VIX3M"),
-    "credit_healing": ("HYG", "IEF"),
-    "carry_stabilized": ("USDJPY",),
+@dataclass(frozen=True)
+class Spec:
+    side: str
+    needs: tuple[str, ...]  # series it cannot fire without; the backtest counts its quiet years from where these begin
+    also: tuple[str, ...] = ()  # series behind its other legs (shorter history: the 9-day VIX, the FRED spread)
+
+
+SIGNALS = {
+    "carry_unwind": Spec(BEAR, ("USDJPY",), ("AUDJPY",)),
+    "vol_shock": Spec(BEAR, ("VIX",), ("VIX9D", "VIX3M")),
+    "credit_stress": Spec(BEAR, ("HYG", "IEF"), ("HYOAS",)),
+    "funding_stress": Spec(BEAR, ("SOFR", "IORB")),
+    "bank_stress": Spec(BEAR, ("KRE", "SPY")),
+    "rates_shock": Spec(BEAR, ("DGS10",), ("MOVE",)),
+    "stress_building": Spec(WATCH, ("VIX9D", "VIX3M", "HYG", "IEF", "SPY")),
+    "vol_capitulation": Spec(BULL, ("VIX",)),
+    "vol_normalizing": Spec(BULL, ("VIX", "VIX9D", "VIX3M")),
+    "credit_healing": Spec(BULL, ("HYG", "IEF"), ("HYOAS",)),
+    "carry_stabilized": Spec(BULL, ("USDJPY",), ("AUDJPY",)),
 }
-SIGNAL_SIDES = {
-    "carry_unwind": BEAR,
-    "vol_shock": BEAR,
-    "credit_stress": BEAR,
-    "funding_stress": BEAR,
-    "bank_stress": BEAR,
-    "rates_shock": BEAR,
-    "vol_capitulation": BULL,
-    "vol_normalizing": BULL,
-    "credit_healing": BULL,
-    "carry_stabilized": BULL,
-}
+CHECK_BY_KEY = {check.__name__: check for check in CHECKS}
+
+
+def unreadable(market: Market, day: date) -> set[str]:
+    """Signals with an input that failed to load or has no bar for `day`: their state is unknown, not off."""
+
+    def gone(name: str) -> bool:
+        s = market.get(name)
+        if s is None:
+            return True
+        if not len(s):  # before the series began: that leg simply doesn't exist yet
+            return False
+        return s.dates[-1] < day - timedelta(days=FRED_STALE_DAYS if name in FRED_SERIES else 0)
+
+    return {key for key, spec in SIGNALS.items() if any(gone(name) for name in (*spec.needs, *spec.also))}
+
+
+def sessions_on(key: str, market: Market, *, window: int = 20) -> tuple[int, int]:
+    """(closes in a row, closes out of the last `window`) that a signal has been on, ending with the latest."""
+    calendar = market.get("SPY") or market.get("VIX")
+    if calendar is None or key not in CHECK_BY_KEY:
+        return 0, 0
+    on = [CHECK_BY_KEY[key](as_of(market, day)) is not None for day in reversed(calendar.dates[-window:])]
+    return next((i for i, flag in enumerate(on) if not flag), len(on)), sum(on)
 
 
 def as_of(market: Market, day: date) -> Market:
