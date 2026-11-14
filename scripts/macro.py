@@ -19,8 +19,9 @@ import statistics
 import sys
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import UTC, date, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta, timezone, tzinfo
 from itertools import pairwise
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import httpx
 
@@ -43,6 +44,13 @@ YAHOO_SERIES = {
 }
 FRED_SERIES = {"HYOAS": "BAMLH0A0HYM2", "SOFR": "SOFR", "IORB": "IORB", "DGS10": "DGS10"}
 FETCH_CONCURRENCY = 6
+# FRED publishes each observation the next business day, so at a day's close the newest print a
+# live run can have seen is the previous day's. as_of() holds FRED series back to match.
+FRED_LAG_DAYS = 1
+# A live run fetches a year of daily bars; as_of() gives every replayed day the same view.
+LIVE_BARS = 252
+INTRADAY_INTERVAL = "60m"
+INTRADAY_RANGE = "730d"  # the most history Yahoo serves at this interval
 
 BEAR = "bear"
 BULL = "bull"
@@ -86,12 +94,18 @@ class Series:
     def last(self) -> float:
         return self.values[-1]
 
-    def upto(self, day: date) -> Series:
+    def upto(self, day: date, *, keep: int | None = None) -> Series:
+        """Bars dated on or before `day`; only the last `keep` of them when given."""
         end = bisect.bisect_right(self.dates, day)
-        return Series(self.dates[:end], self.values[:end], self.highs[:end])
+        start = max(0, end - keep) if keep else 0
+        return Series(self.dates[start:end], self.values[start:end], self.highs[start:end])
 
 
 Market = dict[str, Series]
+
+# One intraday bar: when it started (UTC), its last price and its high.
+IntradayBar = tuple[datetime, float, float]
+Intraday = dict[str, tuple[IntradayBar, ...]]
 
 
 @dataclass(frozen=True)
@@ -358,8 +372,38 @@ CHECKS: tuple[Callable[[Market], Signal | None], ...] = (
 )
 
 
+# The series a signal cannot fire without. The backtest counts a signal's quiet years from where
+# these begin; legs on shorter series (the 9-day VIX, the FRED spread) join in when theirs do.
+SIGNAL_SERIES = {
+    "carry_unwind": ("USDJPY",),
+    "vol_shock": ("VIX",),
+    "credit_stress": ("HYG", "IEF"),
+    "funding_stress": ("SOFR", "IORB"),
+    "bank_stress": ("KRE", "SPY"),
+    "rates_shock": ("DGS10",),
+    "vol_capitulation": ("VIX",),
+    "vol_normalizing": ("VIX", "VIX9D", "VIX3M"),
+    "credit_healing": ("HYG", "IEF"),
+    "carry_stabilized": ("USDJPY",),
+}
+SIGNAL_SIDES = {
+    "carry_unwind": BEAR,
+    "vol_shock": BEAR,
+    "credit_stress": BEAR,
+    "funding_stress": BEAR,
+    "bank_stress": BEAR,
+    "rates_shock": BEAR,
+    "vol_capitulation": BULL,
+    "vol_normalizing": BULL,
+    "credit_healing": BULL,
+    "carry_stabilized": BULL,
+}
+
+
 def as_of(market: Market, day: date) -> Market:
-    return {key: s.upto(day) for key, s in market.items()}
+    """What a run just after `day`'s close sees: that day's final bars, FRED a day behind."""
+    published = day - timedelta(days=FRED_LAG_DAYS)
+    return {key: s.upto(published if key in FRED_SERIES else day, keep=LIVE_BARS) for key, s in market.items()}
 
 
 def evaluate(market: Market) -> list[Signal]:
@@ -369,21 +413,51 @@ def evaluate(market: Market) -> list[Signal]:
 # --- fetching ----------------------------------------------------------------------------------
 
 
+def bar_zone(meta: dict) -> tzinfo:
+    """The exchange's timezone, so each bar is dated by the clock in force that day, not today's."""
+    try:
+        return ZoneInfo(meta["exchangeTimezoneName"])
+    except (KeyError, ValueError, ZoneInfoNotFoundError):
+        return timezone(timedelta(seconds=meta.get("gmtoffset") or 0))
+
+
 def parse_yahoo_series(payload: dict) -> Series:
     result = payload["chart"]["result"][0]
-    offset = result.get("meta", {}).get("gmtoffset") or 0
+    meta = result.get("meta", {})
+    zone = bar_zone(meta)
+    quote = result["indicators"]["quote"][0]
+    closes = quote.get("close") or []
+    opens = quote.get("open") or [None] * len(closes)
+    highs = quote.get("high") or [None] * len(closes)
+    # FX feeds repeat the current day's bar with the live price: a day's first bar holds its open,
+    # its last bar the latest price.
+    bars: dict[date, list[float]] = {}
+    for ts, open_, close, high in zip(result.get("timestamp") or [], opens, closes, highs):
+        if close is None:
+            continue
+        day = datetime.fromtimestamp(ts, zone).date()
+        bar = bars.setdefault(day, [float(open_ if open_ is not None else close), float(close), float(close)])
+        bar[1] = float(close)
+        bar[2] = max(bar[2], float(close), float(high) if high is not None else float(close))
+    days = sorted(bars)
+    values = [bars[d][1] for d in days]
+    if meta.get("instrumentType") == "CURRENCY" and days:
+        # Yahoo's daily FX bars have no closing price ("close" repeats the open), so a day's close
+        # is the next bar's open and the newest day's is the live price.
+        values = [bars[d][0] for d in days[1:]] + [float(meta.get("regularMarketPrice") or values[-1])]
+    return Series(tuple(days), tuple(values), tuple(bars[d][2] for d in days))
+
+
+def parse_yahoo_intraday(payload: dict) -> tuple[IntradayBar, ...]:
+    result = payload["chart"]["result"][0]
     quote = result["indicators"]["quote"][0]
     closes = quote.get("close") or []
     highs = quote.get("high") or [None] * len(closes)
-    # FX feeds sometimes repeat the current day's bar; keep the latest per date.
-    bars: dict[date, tuple[float, float]] = {}
-    for ts, close, high in zip(result.get("timestamp") or [], closes, highs):
-        if close is None:
-            continue
-        day = datetime.fromtimestamp(ts + offset, UTC).date()
-        bars[day] = (float(close), float(high) if high is not None else float(close))
-    days = sorted(bars)
-    return Series(tuple(days), tuple(bars[d][0] for d in days), tuple(max(bars[d]) for d in days))
+    return tuple(
+        (datetime.fromtimestamp(ts, UTC), float(close), float(high) if high is not None else float(close))
+        for ts, close, high in zip(result.get("timestamp") or [], closes, highs)
+        if close is not None
+    )
 
 
 def parse_fred_csv(text: str) -> Series:
@@ -418,6 +492,17 @@ async def fetch_yahoo(client: httpx.AsyncClient, symbol: str, *, start: date | N
         return None
 
 
+async def fetch_yahoo_intraday(client: httpx.AsyncClient, symbol: str) -> tuple[IntradayBar, ...]:
+    """Hourly bars for as far back as Yahoo serves them (about two years)."""
+    try:
+        response = await client.get(YAHOO_CHART_URL.format(symbol=symbol), params={"interval": INTRADAY_INTERVAL, "range": INTRADAY_RANGE})
+        response.raise_for_status()
+        return parse_yahoo_intraday(response.json())
+    except (httpx.HTTPError, ValueError, KeyError, IndexError, TypeError) as exc:
+        print(f"macro: skipping hourly {symbol}: {exc}", file=sys.stderr)
+        return ()
+
+
 async def fetch_fred(client: httpx.AsyncClient, series_id: str, *, start: date | None) -> Series | None:
     since = start or datetime.now(UTC).date() - timedelta(days=365)
     try:
@@ -445,3 +530,14 @@ async def fetch_market(client: httpx.AsyncClient, *, start: date | None = None) 
     jobs = [one(k, fetch_yahoo(client, sym, start=start)) for k, sym in YAHOO_SERIES.items()]
     jobs += [one(k, fetch_fred(client, sid, start=start)) for k, sid in FRED_SERIES.items()]
     return {key: s for key, s in await asyncio.gather(*jobs) if s is not None and len(s)}
+
+
+async def fetch_intraday(client: httpx.AsyncClient) -> Intraday:
+    """Hourly bars for every Yahoo series, for replaying what a mid-session run would have seen."""
+    gate = asyncio.Semaphore(FETCH_CONCURRENCY)
+
+    async def one(key: str, symbol: str) -> tuple[str, tuple[IntradayBar, ...]]:
+        async with gate:
+            return key, await fetch_yahoo_intraday(client, symbol)
+
+    return {key: bars for key, bars in await asyncio.gather(*(one(k, sym) for k, sym in YAHOO_SERIES.items())) if bars}
