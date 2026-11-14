@@ -4,7 +4,7 @@ Bear signals flag the stresses behind past crashes: yen carry unwinds, volatilit
 funding and bank stress, rate shocks. They fire late, so one watch signal flags two of those
 stresses starting together while stocks are still near their highs. Bull signals flag the washouts
 and recoveries that marked bottoms: volatility capitulation, fear normalizing, credit healing, the
-yen stabilizing.
+yen stabilizing (macro_check.py scores the last two but doesn't post them).
 
 Every signal is a pure function of the history up to a given day, so the same code runs live and
 in the backtest. Both judge completed daily bars: as_of() is the view at a day's close.

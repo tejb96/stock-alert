@@ -6,7 +6,7 @@ Serverless Discord alerts for early market signals — no hosting required. Ever
 - **SEC checker** — **paused** (manual runs only): insider purchases and 8-Ks posted too often to be worth reading. Insider buying still feeds the Reddit alert bar.
 - **Put scan** — **paused** (manual runs only). When on: silent unless selling cash-secured puts is unusually well paid: a strike ladder for stocks you're happy to own (GME by default) when their implied volatility is high against its past year, and any watchlist put that passes every filter.
 - **Congress trades** (once each weekday evening) — silent unless newly filed House trade reports contain a purchase that scores high on the signals that matter: leadership or committee chair, a committee that oversees the company's sector, size, long-dated call options, several members buying the same stock, and how quickly it was disclosed.
-- **Market alarms** (after each market close) — silent unless a market-wide **crash alarm** (yen carry unwind, volatility shock, credit/funding/bank stress, rates shock), an **early warning** (two stresses starting while stocks are still near their highs) or a **bottom signal** (capitulation, fear normalizing, credit healing, yen stabilizing) switches on at the close, a crash alarm gets materially worse, or the last crash alarm goes quiet without a bottom signal.
+- **Market alarms** (after each market close) — silent unless a market-wide **crash alarm** (yen carry unwind, volatility shock, credit/funding/bank stress, rates shock), an **early warning** (two stresses starting while stocks are still near their highs) or a **bottom signal** (capitulation, fear normalizing) switches on at the close, a crash alarm gets materially worse, or the last crash alarm goes quiet without a bottom signal.
 
 None of it is investment advice.
 
@@ -123,16 +123,14 @@ When Nasdaq doesn't list the next earnings date yet (it usually appears only 2�
 Market alarms · close of Thu Nov 5
 📊 SPY $733.00 (-5.9% vs 1-month high) · VIX 28.2 · USD/JPY 157.43 · HY spread 3.32%
 🔴 Active: Volatility shock
-Confirmed at the close. These alarms fire late: since 1993 SPY was on average 9% below its 3-month
-high when one did, and 6 in 10 were not followed by a further 3% fall within 20 days. Cut leverage
-and hedge rather than open new shorts.
+Volatility is here, not a sell signal: these fire late, most of the fall usually done, and SPY has
+on average risen over the next 20 days, in bigger swings both ways.
 
 🔴 Crash alarm — Volatility shock
 VIX curve inverted: 9-day / 3-month 1.28 — near-term panic priced above later
 ⏱ Day 1 of this alarm · on at 1 of the last 20 closes
 📜 Leveraged vol sellers and risk-parity funds de-risk mechanically when this hits (Feb 2018, Mar 2020, Aug 2024).
-🧮 Since 1993 (95 alerts): SPY was already 8% below its 3-month high. 59% were not followed by a
-further 3% fall within 20 days (any day: 67%). SPY averaged +1.7% over the next 20 days (any day: +0.8%).
+🧮 Since 1993 (95 alerts): 8% below the 3-month high, 68% of the fall done; next 20 days +1.7% (typical +0.8%).
 ```
 
 An early warning fires nearer the highs, before any crash alarm, and says how often it has been wrong:
@@ -143,8 +141,7 @@ VIX curve flattening: 9-day / 3-month 0.98 (normal is below 0.95)
 Junk bonds vs Treasuries (HYG/IEF) -1.6% in 10d
 SPY still only -2.0% from its 3-month high
 📜 Options and credit are both flinching while stocks have barely moved. Earlier than the crash alarms, and wrong about half the time.
-🧮 Since 2011 (39 alerts): SPY was 3% below its 3-month high. 49% were not followed by a further 3%
-fall within 20 days (any day: 71%). SPY averaged -0.6% over the next 20 days (any day: +1.0%).
+🧮 Since 2011 (39 alerts): 3% below the 3-month high; 51% saw a further 3% fall within 20 days (typical 29%).
 ```
 
 A crash alarm that reads much worse than when it last alerted posts again, and says how far it has moved:
@@ -159,9 +156,8 @@ VIX 41.0 (+45.5% in 5d)
 When the last crash alarm goes quiet and no bottom signal has fired, one line says so:
 
 ```
-⚪ No crash alarm is on any more: Volatility shock (on at 2 closes from Nov 5). No bottom signal is on
-either, and alarms going quiet is not an all-clear. Of 61 such clearings since 1993, 32% were followed
-within 20 days by a close below the prior 3-month low (any day: 19%).
+⚪ No crash alarm is on any more: Volatility shock (on at 2 closes from Nov 5). Going quiet without a
+bottom signal is not an all-clear. Since 1993 (61 clearings): 32% saw a lower low within 20 days (typical 19%).
 ```
 
 ## How it works
@@ -260,13 +256,17 @@ The scan only tries to tilt the odds; the rules come from that research and comm
 
 Free daily data from Yahoo (FX, VIX curve, MOVE, ETFs) and FRED (high-yield spread, SOFR, interest on reserves, 10y yield).
 
-**Alerts are judged on completed daily bars only.** The job runs through the session, but a run before the close posts nothing new; the first run after the close (16:20 New York, once the VIX has stopped printing) posts for that day. That makes every alert one the backtest would also have sent. In an hourly replay of Jan 2024 – Nov 2026, a third of the signals that came on mid-session were off again by the close (40% for the volatility shock, 69% for the early warning), and a crash alarm that held was worth about 0.2% of SPY between the check and the close. If runs are missed, the next run posts the closes it missed (up to 3 sessions back) and says they are late.
+**Alerts are judged on completed daily bars only.** The job runs through the session, but a run before the close posts nothing new; the first run after the close (16:20 New York, once the VIX has stopped printing) posts for that day. That makes every alert one the backtest would also have sent. In an hourly replay of Jan 2024 – Nov 2026, a third of the signals that came on mid-session were off again by the close (40% for the volatility shock, 69% for the early warning), and a crash alarm that held was worth about 0.2% of SPY between the check and the close. If runs are missed, the next run posts the closes it missed (up to 3 sessions back) and says they are late. Backup runs at 22:27 and 23:27 UTC on weekdays cover a dropped evening run, so a winter close doesn't wait for the next afternoon.
 
 What posts:
 
 - **A signal switching on** at a close. It then stays quiet while it stays on and for 10 days after.
 - **A crash alarm getting worse**: it posts again, inside the cooldown or while still on, once it reads 1.25× as far past its trigger as at its last alert (VIX 30 → 37.5, say). Each alert also compares its readings with the last alert of the same signal from the past 90 days.
 - **The last crash alarm going quiet** with no bottom signal fired during the episode: one line, and only if an alarm had been on for at least two closes.
+
+Each message is short enough to read on a phone. It keeps the signal's readings, the comparison with its last alert and the crash alarm's day count, plus one line on how to read that kind of alert and one line of the signal's measured record.
+
+**Credit healing and yen carry stabilizing are not posted.** Neither beat a typical day through 2019 or over the whole history. Both are still computed, kept in `macro.json` and scored by the backtest, which marks them *not posted*. They never appear in a message, and they don't hold back the note when the last crash alarm goes quiet.
 
 | Signal | Fires when | Past examples |
 |--------|------------|---------------|
@@ -279,8 +279,8 @@ What posts:
 | 🟠 Stress building near the highs | All of: VIX 9-day ÷ 3-month ≥ 0.95, HYG ÷ IEF −1.5% in 10d, SPY within 5% of its 3-month high | Jul 2011, Jul 2015, Jan and Feb 2020, Feb 2025 |
 | 🟢 Volatility capitulation | VIX hits ≥ 30 intraday and closes ≥ 15% below its high | Dec 26 2018, Mar 23 2020, Aug 5 2024, Apr 7 2025 |
 | 🟢 Fear normalizing | After a volatility shock: VIX curve back below 0.95, VIX ≥ 30% off its 20-day peak | |
-| 🟢 Credit healing | After credit stress: HYG ÷ IEF +2% off its 20-day low | |
-| 🟢 Yen carry stabilizing | After a carry unwind: USD/JPY +1% in 5d | |
+| Credit healing (not posted) | After credit stress: HYG ÷ IEF +2% off its 20-day low | |
+| Yen carry stabilizing (not posted) | After a carry unwind: USD/JPY +1% in 5d | |
 
 **What the backtest says** (`python scripts/macro_check.py --backtest`, SPY's closes from 1993 to Nov 2026, each signal from where its data starts). Thresholds are judged on data through 2019 and checked on 2020 onward; the table is the whole period, with a typical day alongside.
 
@@ -291,15 +291,15 @@ What posts:
 | 🟠 Stress building (since 2011) | 2.5 | −0.6% | +1.0% | SPY 3% below its 3-month high; 49% not followed by a further 3% fall (71% on any day) |
 | 🟢 Volatility capitulation | 1.0 | +1.9% | +0.8% | Fires a median 1 day from the low; 43% followed by a lower low |
 | 🟢 Fear normalizing | 2.9 | +1.7% | +1.0% | 66% of the rebound already gone; 11% followed by a lower low |
-| 🟢 Credit healing | 3.5 | +0.4% | +0.8% | 32% followed by a lower low |
-| 🟢 Yen carry stabilizing | 2.1 | +0.7% | +0.7% | 20% followed by a lower low |
+| Credit healing (not posted) | 3.5 | +0.4% | +0.8% | 32% followed by a lower low |
+| Yen carry stabilizing (not posted) | 2.1 | +0.7% | +0.7% | 20% followed by a lower low |
 
 So:
 
-- **Crash alarms are late.** By the time one fires about two thirds of the fall is over, and SPY's next 20 days have been better than average, not worse. Read one as *cut leverage and hedge*, not *open a short*. Lowering their thresholds fires them a little earlier and about twice as often, with no fewer false alarms.
+- **Crash alarms are late.** By the time one fires about two thirds of the fall is over, and SPY's next 20 days have on average been better than a typical 20 days, not worse, in bigger swings both ways. Read one as *volatility is here*, not as a sell signal. Lowering their thresholds fires them a little earlier and about twice as often, with no fewer false alarms.
 - **A crash alarm getting worse has meant more**: deeper falls followed, both before 2020 and since.
 - **One earlier warning held up.** Thirteen indicators that fire nearer the highs were tested on their own: VIX curve flattening or backwardation, VIX jumps, credit weakening, a first big down day, VVIX, SKEW, MOVE, the yen, a break of the 50-day average, and small caps, equal-weight, cyclicals and semiconductors against the index. Most were no better than a typical day once tested on 2020 onward; looser VIX-curve rules matched the crash alarms' hit rate only by alerting 7–8 times a year; MOVE and small caps fired after SPY had already fallen 9–11% in one of the two periods. Two together were different: the VIX curve leaving its normal shape while junk bonds lag Treasuries, with SPY still within 5% of its high. Through 2019 a 3% fall followed 48% of the time against 27% for a typical day (31 alerts), and since 2020 62% against 32% (8 alerts, among them Jan 27 and Feb 24 2020 and Feb 27 2025). It is still wrong about half the time, eight alerts is a small test, and it is the survivor of 28 rules tried, so some of that edge is luck. It posts as an early warning, not a crash alarm.
-- **Bottom signals worked in the 2020s and not before.** After them SPY averaged +3.1% over 20 days since 2020 against +1.1% for a typical 20 days, but +0.2% against +0.7% through 2019. Only capitulation beat a typical week in both periods. Credit healing and yen stabilizing show no edge over the whole history.
+- **Bottom signals worked in the 2020s and not before.** After them SPY averaged +3.1% over 20 days since 2020 against +1.1% for a typical 20 days, but +0.2% against +0.7% through 2019. Only capitulation beat a typical week in both periods. Credit healing and yen stabilizing show no edge over the whole history, so they are no longer posted.
 - The sample is a handful of real crises. Every message carries its own signal's record so the numbers travel with the alert.
 
 Where the history is thin: the 9-day VIX starts in 2011 (so the curve leg, the early warning and fear normalizing do too), SOFR and interest on reserves in 2021, and FRED serves only the last three years of the high-yield spread. FRED publishes each print a business day late and Yahoo's daily FX bars carry no closing price (the close is taken from where the next bar opens); the replay sees both as a live run would. Yahoo serves hourly bars for about two years, which is all the mid-session comparison can cover.
@@ -330,7 +330,7 @@ Deleting a file just resets that history.
    | `SEC_CONTACT_EMAIL` | an email address SEC can contact — [EDGAR requires it](https://www.sec.gov/os/accessing-edgar-data) in every request's User-Agent. Without it the SEC features are skipped (including the Reddit insider-buying gate, so no Reddit alert can fire). |
 
 3. **Test manually**
-   **Actions** → **Stock alert** → **Run workflow**, and the same for **SEC insider check**, **Put scan** and **Congress trades**.
+   **Actions** → **Stock alert** → **Run workflow**, and the same for **SEC insider check**, **Put scan**, **Congress trades** and **Market alarms**. For Market alarms, tick **dry_run** to print the message in the run's log instead of posting it, without touching run history. It prints nothing when the last close changed nothing.
 
 4. **Scheduled runs** (UTC; GitHub cron doesn't follow daylight saving, so ET times shift an hour earlier in winter). Odd minutes avoid the `:00`/`:15`/`:30` rush when GitHub's scheduler is most congested. In practice GitHub drops most scheduled runs and starts the rest hours late (the 20-minute SEC check runs ~3 times a day), so the once-a-day jobs have backup slots and guard against running twice, and the SEC check backfills whatever it missed.
 
@@ -340,6 +340,7 @@ Deleting a file just resets that history.
    | SEC check | paused (manual only) | — | New insider buys and watched 8-Ks |
    | Put scan | paused (manual only); was Mon–Fri 14:47, backups hourly to 19:47 | 10:47 AM | After the open, once option spreads have tightened. Scans once per market day, not before 9:45 ET |
    | Congress trades | Mon–Fri 22:41 | 6:41 PM | New House trade disclosures |
+   | Market alarms | Mon–Fri hourly 13:27–21:27, backups 22:27 and 23:27; Sun 22:27 and 23:27 | 4:27 PM | Posts a close on the first run after 4:20 PM ET (20:27 UTC in summer, 21:27 in winter); runs before that post nothing. Sunday catches a missed Friday |
 
 ## Local development
 

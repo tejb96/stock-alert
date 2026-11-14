@@ -6,9 +6,17 @@ on:
     # a run after 16:20 New York (20:27 UTC in summer, 21:27 in winter) posts for the day. GitHub
     # drops most scheduled runs; the earlier slots are there to post a close an evening run missed.
     - cron: "27 13-21 * * 1-5"
+    # Backup after-close slots, so a dropped 21:27 run doesn't hold a winter close until the next
+    # afternoon. A run after the close has been processed does nothing.
+    - cron: "27 22,23 * * 1-5"
     # Sunday evening: a second chance at Friday's close.
     - cron: "27 22,23 * * 0"
   workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Print the message in the log instead of posting it, and leave run history unchanged
+        type: boolean
+        default: false
 
 # One run at a time: each pushes run history to the `state` branch.
 concurrency:
@@ -42,10 +50,12 @@ jobs:
         run: python scripts/macro_check.py
         env:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          DRY_RUN: ${{ inputs.dry_run }}
           STATE_DIR: state
           YAHOO_USER_AGENT: stock_alert-cron/1.0
 
       - name: Save run history
+        if: ${{ !inputs.dry_run }}
         run: scripts/save_state.sh "macro-check ${{ github.run_id }}"
         env:
           STATE_DIR: state

@@ -6,7 +6,7 @@ is one the backtest would also have sent: a run during the session posts nothing
 first run after the close posts for that day. A signal alerts when it switches on, not again
 while it stays on or within COOLDOWN_DAYS, unless a crash alarm reads WORSE_STEP times worse than
 at its last alert. When the last crash alarm switches off and no bottom signal has fired, one
-line says so.
+line says so. Signals in UNPOSTED are computed and scored but never posted.
 
 Backtest: python scripts/macro_check.py --backtest
 scores every alert the rules would have sent, as far back as each series goes, against SPY.
@@ -71,6 +71,10 @@ FIRED_RETENTION_DAYS = 90
 # worse than at its last alert. Chosen on data through 2019: see the README.
 WORSE_STEP = 1.25
 CLEARED_MIN_SESSIONS = 2
+# Computed, kept in the state and scored by the backtest, but never posted: neither beat a typical
+# day through 2019 or over the whole history. They don't count as a bottom signal for the cleared
+# note either, since nobody heard from them.
+UNPOSTED = frozenset({"credit_healing", "carry_stabilized"})
 # Closes missed by more than this many sessions (the job was off) update the state without posting.
 CATCH_UP_SESSIONS = 3
 NEW_YORK = ZoneInfo("America/New_York")
@@ -109,46 +113,35 @@ SIDE_STYLE = {
         "🔴",
         0xE74C3C,
         "Crash alarm",
-        (
-            "Confirmed at the close. These alarms fire late: since 1993 SPY was on average 9% below its 3-month high when one did, and "
-            "6 in 10 were not followed by a further 3% fall within 20 days. Cut leverage and hedge rather than open new shorts."
-        ),
+        "Volatility is here, not a sell signal: these fire late, most of the fall usually done, and SPY has on average risen over the next 20 days, in bigger swings both ways.",
     ),
     WATCH: (
         "🟠",
         0xE67E22,
         "Early warning",
-        (
-            "Confirmed at the close. This fires near the highs, before any crash alarm: since 2011 about half were followed by a "
-            "further 3% fall within 20 days, against 3 in 10 for a typical day. A reason to check hedges and position size, not a crash call."
-        ),
+        "Fires near the highs, before any crash alarm. A reason to check hedges and position size, not a crash call.",
     ),
     BULL: (
         "🟢",
         0x2ECC71,
         "Bottom signal",
-        (
-            "Confirmed at the close. Since 1993 these fired with about 60% of the rebound already gone, and 1 in 4 was followed by a "
-            "lower low. The 20 days after them beat a typical 20 days only since 2020 (+3.1% vs +1.1%; before that +0.2% vs +0.7%). "
-            "Scale in rather than go all in."
-        ),
+        "Much of the rebound is usually gone, and the edge over a typical 20 days shows only since 2020. Scale in, don't go all in.",
     ),
 }
 RECORD = {
-    "carry_unwind": "Since 1996 (59 alerts): SPY was already 9% below its 3-month high. 59% were not followed by a further 3% fall within 20 days (any day: 65%). SPY averaged +1.8% over the next 20 days (any day: +0.7%).",
-    "vol_shock": "Since 1993 (95 alerts): SPY was already 8% below its 3-month high. 59% were not followed by a further 3% fall within 20 days (any day: 67%). SPY averaged +1.7% over the next 20 days (any day: +0.8%).",
-    "credit_stress": "Since 2007 (57 alerts): SPY was already 11% below its 3-month high. 60% were not followed by a further 3% fall within 20 days (any day: 67%). SPY averaged +1.5% over the next 20 days (any day: +0.8%).",
-    "funding_stress": "Since 2021 (4 alerts): SPY was already 1% below its 3-month high. 75% were not followed by a further 3% fall within 20 days (any day: 67%). SPY averaged +0.6% over the next 20 days (any day: +1.0%).",
-    "bank_stress": "Since 2006 (13 alerts): SPY was already 14% below its 3-month high. 46% were not followed by a further 3% fall within 20 days (any day: 68%). SPY averaged -0.6% over the next 20 days (any day: +0.8%).",
-    "rates_shock": "Since 1993 (30 alerts): SPY was already 8% below its 3-month high. 67% were not followed by a further 3% fall within 20 days (any day: 67%). SPY averaged +0.8% over the next 20 days (any day: +0.8%).",
-    "stress_building": "Since 2011 (39 alerts): SPY was 3% below its 3-month high. 49% were not followed by a further 3% fall within 20 days (any day: 71%). SPY averaged -0.6% over the next 20 days (any day: +1.0%).",
-    "vol_capitulation": "Since 1993 (35 alerts): SPY averaged +1.9% over the next 20 days (any day: +0.8%). 42% of the rise from the low to the next 20 days' high was already gone, and 43% were followed by a lower low.",
-    "vol_normalizing": "Since 2011 (45 alerts): SPY averaged +1.7% over the next 20 days (any day: +1.0%). 66% of the rise from the low to the next 20 days' high was already gone, and 11% were followed by a lower low.",
-    "credit_healing": "Since 2007 (69 alerts): SPY averaged +0.4% over the next 20 days (any day: +0.8%). 61% of the rise from the low to the next 20 days' high was already gone, and 32% were followed by a lower low.",
-    "carry_stabilized": "Since 1996 (64 alerts): SPY averaged +0.7% over the next 20 days (any day: +0.7%). 65% of the rise from the low to the next 20 days' high was already gone, and 20% were followed by a lower low.",
-    WORSE_LABEL: "Since 1993 (65 such re-alerts): SPY's worst close of the next 20 days averaged -6.8% (any day: -2.7%), and 45% were not followed by a further 3% fall (any day: 67%).",
+    "carry_unwind": "Since 1996 (59 alerts): 9% below the 3-month high, 58% of the fall done; next 20 days +1.8% (typical +0.7%).",
+    "vol_shock": "Since 1993 (95 alerts): 8% below the 3-month high, 68% of the fall done; next 20 days +1.7% (typical +0.8%).",
+    "credit_stress": "Since 2007 (57 alerts): 11% below the 3-month high, 67% of the fall done; next 20 days +1.5% (typical +0.8%).",
+    "funding_stress": "Since 2021 (4 alerts): 1% below the 3-month high, 20% of the fall done; next 20 days +0.6% (typical +1.0%).",
+    "bank_stress": "Since 2006 (13 alerts): 14% below the 3-month high, 71% of the fall done; next 20 days -0.6% (typical +0.8%).",
+    "rates_shock": "Since 1993 (30 alerts): 8% below the 3-month high, 66% of the fall done; next 20 days +0.8% (typical +0.8%).",
+    "stress_building": "Since 2011 (39 alerts): 3% below the 3-month high; 51% saw a further 3% fall within 20 days (typical 29%).",
+    "vol_capitulation": "Since 1993 (35 alerts): next 20 days +1.9% (typical +0.8%); 42% of the rebound already gone; 43% saw a lower low.",
+    "vol_normalizing": "Since 2011 (45 alerts): next 20 days +1.7% (typical +1.0%); 66% of the rebound already gone; 11% saw a lower low.",
+    WORSE_LABEL: "Since 1993 (65 re-alerts): worst close of the next 20 days -6.8% on average (typical -2.7%).",
 }
-CLEARED_RECORD = "Of 61 such clearings since 1993, 32% were followed within 20 days by a close below the prior 3-month low (any day: 19%)."
+# Measured while credit healing and yen stabilizing could still hold this note back.
+CLEARED_RECORD = "Since 1993 (61 clearings): 32% saw a lower low within 20 days (typical 19%)."
 
 
 @dataclass(frozen=True)
@@ -213,9 +206,9 @@ def transitions(
             opened[signal.key]["sessions"] += 1
 
     # The stress episode ends at the first close with no crash alarm on. It gets one note, unless a
-    # bottom signal came on at any point in it and has already said so, or no alarm lasted beyond
-    # a single close (what follows those is no different from any other day).
-    bottomed = bool(opened) and (bool(state.get("bottomed")) or any(s.side == BULL for s in signals))
+    # posted bottom signal came on at any point in it and has already said so, or no alarm lasted
+    # beyond a single close (what follows those is no different from any other day).
+    bottomed = bool(opened) and (bool(state.get("bottomed")) or any(s.side == BULL and s.key not in UNPOSTED for s in signals))
     cleared = []
     unread = (set(unknown) & set(opened)) - on
     if opened and not unread and not any(s.side == BEAR for s in signals):
@@ -259,6 +252,7 @@ def session_steps(market: Market, state: dict[str, Any], now: datetime) -> Itera
         view = as_of(market, day)
         active = evaluate(view)
         alerts, cleared, state = transitions(active, state, today=day, spy=view["SPY"].last, unknown=unreadable(view, day))
+        alerts = [a for a in alerts if a.signal.key not in UNPOSTED]
         payload, posted = None, []
         if (alerts or cleared) and day in sessions[-CATCH_UP_SESSIONS:]:
             payload = build_payload(alerts, cleared, active, view, day=day, late=day != sessions[-1])
@@ -334,7 +328,7 @@ def cleared_line(cleared: list[Cleared]) -> str:
     if not cleared:
         return ""
     alarms = ", ".join(f"**{c.title}** (on at {c.sessions} close{'' if c.sessions == 1 else 's'} from {short_date(c.since)})" for c in cleared)
-    return f"⚪ No crash alarm is on any more: {alarms}. No bottom signal is on either, and alarms going quiet is not an all-clear. {CLEARED_RECORD}".rstrip()
+    return f"⚪ No crash alarm is on any more: {alarms}. Going quiet without a bottom signal is not an all-clear. {CLEARED_RECORD}".rstrip()
 
 
 def build_payload(
@@ -350,7 +344,7 @@ def build_payload(
     header = f"**Market alarms** · close of {day:%a} {short_date(day)}" + (" (sent late: an earlier run was missed)" if late else "")
     lines = [header, snapshot_line(market)]
     for side in SIDES:
-        on = [s.title for s in active if s.side == side]
+        on = [s.title for s in active if s.side == side and s.key not in UNPOSTED]
         if on:
             lines.append(f"{SIDE_STYLE[side][0]} Active: {', '.join(on)}")
     for side in SIDES:
@@ -374,6 +368,16 @@ class Post:
     side: str
     title: str
     lines: tuple[str, ...] = ()
+
+    @property
+    def posted(self) -> bool:
+        """False for a signal that is scored but never sent (UNPOSTED)."""
+        return self.key not in UNPOSTED
+
+
+def shown(label: str) -> str:
+    """A row label in backtest output, marked when that signal is scored but never posted."""
+    return f"{label} (not posted)" if label in UNPOSTED else label
 
 
 def backtest(market: Market, start: date) -> list[Post]:
@@ -524,7 +528,7 @@ def summary_rows(found: list[Group], side: str) -> list[list[str]]:
     """Each group's numbers, followed by the same numbers for any day it could have fired on."""
     rows = []
     for g in (g for g in found if g.side == side):
-        for label, outcomes in ((g.label, g.hits), (f"  any day since {g.since:%Y-%m}", g.every)):
+        for label, outcomes in ((shown(g.label), g.hits), (f"  any day since {g.since:%Y-%m}", g.every)):
             row = [label, str(len(outcomes)), f"{g.per_year:.1f}"] if outcomes is g.hits else [label, "", ""]
             row += [num(mean(o.forward[i] for o in outcomes)) for i in range(len(FORWARD_DAYS))]
             if side != BULL:
@@ -548,9 +552,9 @@ def summary_rows(found: list[Group], side: str) -> list[list[str]]:
 
 
 def volume_line(spy: Series, posts: list[Post], first: date, last: date) -> str:
-    """How often something posts: the bar is that most days nothing does."""
+    """How often something posts: the bar is that most days nothing does. UNPOSTED signals don't count."""
     sessions = sum(first <= d <= last for d in spy.dates)
-    mine = [p for p in posts if first <= p.day <= last]
+    mine = [p for p in posts if first <= p.day <= last and p.posted]
     days = len({p.day for p in mine})
     years = max((last - first).days / 365.25, 1e-9)
     kinds = ", ".join(f"{sum(p.kind == kind for p in mine) / years:.1f} {kind}" for kind in (NEW, WORSE, CLEARED))
@@ -585,32 +589,32 @@ def format_table(header: tuple[str, ...], rows: list[list[str]]) -> str:
 
 
 def record_line(g: Group) -> str | None:
-    """A group's record as one sentence for the Discord message."""
+    """A group's record as one short line for the Discord message ("typical" is any day it could have fired on)."""
     if not g.hits:
         return None
-    twenty = FORWARD_DAYS.index(20)
+    twenty, worst = FORWARD_DAYS.index(20), DRAWDOWN_DAYS.index(20)
+    noun = {CLEARED_LABEL: "clearings", WORSE_LABEL: "re-alerts"}.get(g.label, "alerts")
+    lead = f"Since {g.since.year} ({len(g.hits)} {noun})"
+
+    def fell(outcomes: list[Outcome]) -> str:
+        return num(share(None if o.false_alarm is None else not o.false_alarm for o in outcomes), ".0f")
+
     if g.label == CLEARED_LABEL:
-        return (
-            f"Of {len(g.hits)} such clearings since {g.since.year}, {num(share(o.new_low for o in g.hits), '.0f')}% were followed within 20 days "
-            f"by a close below the prior 3-month low (any day: {num(share(o.new_low for o in g.every), '.0f')}%)."
-        )
+        return f"{lead}: {num(share(o.new_low for o in g.hits), '.0f')}% saw a lower low within 20 days (typical {num(share(o.new_low for o in g.every), '.0f')}%)."
     if g.label == WORSE_LABEL:
         return (
-            f"Since {g.since.year} ({len(g.hits)} such re-alerts): SPY's worst close of the next 20 days averaged "
-            f"{num(mean(o.drawdown[DRAWDOWN_DAYS.index(20)] for o in g.hits))}% (any day: {num(mean(o.drawdown[DRAWDOWN_DAYS.index(20)] for o in g.every))}%), and "
-            f"{num(share(o.false_alarm for o in g.hits), '.0f')}% were not followed by a further 3% fall (any day: {num(share(o.false_alarm for o in g.every), '.0f')}%)."
+            f"{lead}: worst close of the next 20 days {num(mean(o.drawdown[worst] for o in g.hits))}% on average "
+            f"(typical {num(mean(o.drawdown[worst] for o in g.every))}%)."
         )
-    lead = f"Since {g.since.year} ({len(g.hits)} alerts)"
-    after = f"SPY averaged {num(mean(o.forward[twenty] for o in g.hits))}% over the next 20 days (any day: {num(mean(o.forward[twenty] for o in g.every))}%)"
-    if g.side != BULL:
-        return (
-            f"{lead}: SPY was {'already ' if g.side == BEAR else ''}{num(-mean(o.off_high for o in g.hits), '.0f')}% below its 3-month high. "
-            f"{num(share(o.false_alarm for o in g.hits), '.0f')}% were not followed by a further 3% fall within 20 days "
-            f"(any day: {num(share(o.false_alarm for o in g.every), '.0f')}%). {after}."
-        )
+    later = f"next 20 days {num(mean(o.forward[twenty] for o in g.hits))}% (typical {num(mean(o.forward[twenty] for o in g.every))}%)"
+    below = f"{num(-mean(o.off_high for o in g.hits), '.0f')}% below the 3-month high"
+    if g.side == BEAR:
+        return f"{lead}: {below}, {num(mean(o.drop_done for o in g.hits), '.0f')}% of the fall done; {later}."
+    if g.side == WATCH:
+        return f"{lead}: {below}; {fell(g.hits)}% saw a further 3% fall within 20 days (typical {fell(g.every)}%)."
     return (
-        f"{lead}: {after}. {num(mean(o.rebound_missed for o in g.hits), '.0f')}% of the rise from the low to the next 20 days' high was "
-        f"already gone, and {num(share(o.new_low for o in g.hits), '.0f')}% were followed by a lower low."
+        f"{lead}: {later}; {num(mean(o.rebound_missed for o in g.hits), '.0f')}% of the rebound already gone; "
+        f"{num(share(o.new_low for o in g.hits), '.0f')}% saw a lower low."
     )
 
 
@@ -632,7 +636,7 @@ def print_summary(market: Market, posts: list[Post], start: date, split: date | 
     print("Horizons that run past the end of the data are left out of the averages.")
     print(f"\nRecords for the messages (RECORD and CLEARED_RECORD), {start} to {end}:")
     for g in groups(market, posts, start, end):
-        if line := record_line(g):
+        if g.label not in UNPOSTED and (line := record_line(g)):
             print(f'    "{g.label}": "{line}",')
 
 
@@ -642,7 +646,8 @@ def print_posts(market: Market, posts: list[Post]) -> None:
     print(f"\n{'date':<11} {'kind':<8} {'signal':<34} " + " ".join(f"SPY+{d}d".rjust(8) for d in FORWARD_DAYS))
     for post in posts:
         fwd = " ".join(format_pct(f).rjust(8) for f in score(spy.values, index[post.day], post.day).forward)
-        print(f"{post.day.isoformat():<11} {post.kind:<8} {post.title:<34} {fwd}")
+        title = post.title if post.posted else f"{post.title} (not posted)"
+        print(f"{post.day.isoformat():<11} {post.kind:<8} {title:<34} {fwd}")
         for line in post.lines:
             print(f"{'':<21}{line.replace('**', '')}")
 
@@ -714,7 +719,7 @@ def print_intraday(market: Market, intraday: Intraday, posts: list[Post]) -> Non
         mine = [t for t in triggers if t.signal.key == key]
         rows.append(
             [
-                key,
+                shown(key),
                 spec.side,
                 str(len(mine)),
                 str(sum(t.held for t in mine)),

@@ -12,14 +12,17 @@ from macro import BEAR, BULL, WATCH, Reading, Series, Signal
 from macro_check import (
     CLEARED,
     CLEARED_LABEL,
+    CLEARED_RECORD,
     NEW,
     NEW_YORK,
     RECORD,
     SIDE_STYLE,
+    UNPOSTED,
     WORSE,
     WORSE_LABEL,
     Alert,
     Cleared,
+    Group,
     Post,
     backtest,
     build_payload,
@@ -43,6 +46,7 @@ SHOCK = Signal(
 CREDIT = Signal("credit_stress", BEAR, "Credit stress", ("HYG/IEF **-4.0%**",), "context", severity=1.1)
 WASHOUT = Signal("vol_capitulation", BULL, "Volatility capitulation", ("VIX spiked",), "context")
 EARLY = Signal("stress_building", WATCH, "Stress building near the highs", ("VIX curve flattening",), "context", severity=1.02)
+HEALING = Signal("credit_healing", BULL, "Credit healing", ("HYG/IEF **+3.0%** off its low",), "context")
 
 
 def weekdays(start: date, n: int) -> tuple[date, ...]:
@@ -148,6 +152,12 @@ def test_no_cleared_note_when_a_bottom_signal_spoke_for_the_episode():
     assert run_days([[SHOCK], [SHOCK], [WASHOUT]])[2][1] == []
 
 
+def test_an_unposted_bottom_signal_does_not_hold_the_cleared_note_back():
+    assert "credit_healing" in UNPOSTED
+    days = run_days([[CREDIT], [CREDIT], [HEALING]])
+    assert [c.key for c in days[2][1]] == ["credit_stress"]  # nobody heard from credit healing, so the episode still gets its note
+
+
 def test_cleared_note_is_not_repeated_by_flicker():
     days = run_days([[SHOCK], [SHOCK], [], [SHOCK], []])
     assert len(days[2][1]) == 1
@@ -235,6 +245,32 @@ def test_session_steps_skip_posting_closes_missed_long_ago():
     assert steps[-1].state["active"] == ["vol_shock"]
 
 
+def test_unposted_signal_is_tracked_but_never_sent():
+    n = 24
+    days = weekdays(date(2026, 9, 28), n)
+    hyg = [80.0] * 20 + [76.0, 75.0, 76.0, 77.5]  # credit stress at three closes, then credit healing
+    market = {
+        "SPY": daily(days, [700.0] * n),
+        "VIX": daily(days, [15.0] * n),
+        "HYG": daily(days, hyg),
+        "IEF": daily(days, [95.0] * n),
+        "HYOAS": daily(days, [3.0] * n),
+    }
+    state: dict = {"asof": days[-5].isoformat(), "active": [], "fired": {}}
+    steps = []
+    for day in days[-4:]:
+        (step,) = session_steps(market, state, datetime(day.year, day.month, day.day, 17, 0, tzinfo=NEW_YORK))
+        steps.append(step)
+        state = step.state
+    assert [s.posted for s in steps] == [[f"{days[-4]} new credit_stress"], [], [], [f"{days[-1]} cleared credit_stress"]]
+    assert state["active"] == ["credit_healing"]
+    assert "credit_healing" in state["fired"]  # its cooldown still runs, as the backtest scores it
+    last = steps[-1].payload
+    assert last["embeds"] == []
+    assert "Credit healing" not in last["content"]
+    assert "⚪ No crash alarm is on any more: **Credit stress** (on at 3 closes" in last["content"]
+
+
 def test_build_payload_lists_active_and_guidance():
     market = {"SPY": series(700, 690, 650), "VIX": series(15, 25, 32)}
     payload = build_payload([Alert(SHOCK, NEW)], [], [SHOCK, WASHOUT], market, day=date(2026, 9, 24))
@@ -295,11 +331,18 @@ def test_build_payload_stays_within_discord_limits():
     assert sum(embed_size(e) for e in payload["embeds"]) <= EMBED_TOTAL_LIMIT
 
 
-def test_every_signal_states_its_record():
+def test_every_posted_signal_states_its_record():
     from macro import SIGNALS
 
-    assert set(RECORD) == {*SIGNALS, WORSE_LABEL}
-    assert all(text.startswith("Since ") for text in RECORD.values())
+    assert UNPOSTED < set(SIGNALS)
+    assert set(RECORD) == (set(SIGNALS) - UNPOSTED) | {WORSE_LABEL}
+    assert all(text.startswith("Since ") for text in (*RECORD.values(), CLEARED_RECORD))
+
+
+def test_side_and_record_are_one_short_line_each():
+    """Read on a phone: the guidance and the record are a line apiece, not paragraphs."""
+    assert all("\n" not in text and len(text) <= 120 for text in (*RECORD.values(), CLEARED_RECORD))
+    assert all("\n" not in style[3] and len(style[3]) <= 170 for style in SIDE_STYLE.values())
 
 
 def test_backtest_replays_daily_with_cooldown():
@@ -348,8 +391,12 @@ def test_summary_compares_each_signal_with_any_day():
     n = 200
     days = tuple(date(2020, 1, 1) + timedelta(days=i) for i in range(n))
     spy = Series(days, tuple(100.0 + i for i in range(n)))
-    market = {"SPY": spy, "VIX": Series(days, (15.0,) * n)}
-    posts = [Post(days[100], NEW, "vol_shock", BEAR, "Volatility shock"), Post(days[110], WORSE, "vol_shock", BEAR, "Volatility shock")]
+    market = {"SPY": spy, "VIX": Series(days, (15.0,) * n), "HYG": Series(days, (80.0,) * n), "IEF": Series(days, (95.0,) * n)}
+    posts = [
+        Post(days[100], NEW, "vol_shock", BEAR, "Volatility shock"),
+        Post(days[110], WORSE, "vol_shock", BEAR, "Volatility shock"),
+        Post(days[120], NEW, "credit_healing", BULL, "Credit healing"),
+    ]
     found = groups(market, posts, days[60], days[-1])
     by_label = {g.label: g for g in found}
     assert len(by_label["vol_shock"].hits) == 1
@@ -360,9 +407,17 @@ def test_summary_compares_each_signal_with_any_day():
     assert rows[0][:2] == ["vol_shock", "1"]
     assert rows[1][0].startswith("  any day since 2020-0")
     assert rows[0][3] == "+2.5"  # 5 points on 200 five days later
-    assert record_line(by_label["vol_shock"]).startswith("Since 2020 (1 alerts): SPY was already 0% below its 3-month high.")
+    assert record_line(by_label["vol_shock"]).startswith("Since 2020 (1 alerts): 0% below the 3-month high, ")
     assert record_line(by_label[CLEARED_LABEL]) is None
-    assert "Posts: 2 on 2 of 140 sessions (1.4%)" in volume_line(spy, posts, days[60], days[-1])
+    assert [r[:2] for r in summary_rows(found, BULL) if "credit_healing" in r[0]] == [["credit_healing (not posted)", "1"]]
+    assert "Posts: 2 on 2 of 140 sessions (1.4%)" in volume_line(spy, posts, days[60], days[-1])  # credit healing is not posted
+
+
+def test_record_line_for_an_early_warning_counts_the_falls_that_followed():
+    fell = score((100.0,) * 60 + (95.0,) * 70, 59, date(2020, 3, 2))  # a 5% fall within 20 days
+    held = score(tuple(100.0 + i for i in range(130)), 60, date(2021, 3, 2))
+    group = Group("stress_building", WATCH, [fell, held], [held], date(2011, 2, 1), date(2026, 11, 13))
+    assert record_line(group) == "Since 2011 (2 alerts): 0% below the 3-month high; 50% saw a further 3% fall within 20 days (typical 0%)."
 
 
 def test_replay_intraday_flags_triggers_gone_by_the_close():
