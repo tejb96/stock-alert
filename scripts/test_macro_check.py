@@ -10,6 +10,7 @@ import pytest
 from common import EMBED_TOTAL_LIMIT, MESSAGE_CONTENT_LIMIT, embed_size
 from macro import BEAR, BULL, WATCH, Reading, Series, Signal
 from macro_check import (
+    ALL_LABEL,
     CLEARED,
     CLEARED_LABEL,
     CLEARED_RECORD,
@@ -396,9 +397,11 @@ def test_summary_compares_each_signal_with_any_day():
         Post(days[100], NEW, "vol_shock", BEAR, "Volatility shock"),
         Post(days[110], WORSE, "vol_shock", BEAR, "Volatility shock"),
         Post(days[120], NEW, "credit_healing", BULL, "Credit healing"),
+        Post(days[130], NEW, "vol_capitulation", BULL, "Volatility capitulation"),
     ]
     found = groups(market, posts, days[60], days[-1])
     by_label = {g.label: g for g in found}
+    assert len(by_label[ALL_LABEL[BULL]].hits) == 1  # capitulation; credit healing has its own row but isn't in the total
     assert len(by_label["vol_shock"].hits) == 1
     assert len(by_label[WORSE_LABEL].hits) == 1
     assert by_label[CLEARED_LABEL].hits == []
@@ -410,7 +413,7 @@ def test_summary_compares_each_signal_with_any_day():
     assert record_line(by_label["vol_shock"]).startswith("Since 2020 (1 alerts): 0% below the 3-month high, ")
     assert record_line(by_label[CLEARED_LABEL]) is None
     assert [r[:2] for r in summary_rows(found, BULL) if "credit_healing" in r[0]] == [["credit_healing (not posted)", "1"]]
-    assert "Posts: 2 on 2 of 140 sessions (1.4%)" in volume_line(spy, posts, days[60], days[-1])  # credit healing is not posted
+    assert "Posts: 3 on 3 of 140 sessions (2.1%)" in volume_line(spy, posts, days[60], days[-1])  # credit healing is not posted
 
 
 def test_record_line_for_an_early_warning_counts_the_falls_that_followed():

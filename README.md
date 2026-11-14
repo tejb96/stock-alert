@@ -157,7 +157,7 @@ When the last crash alarm goes quiet and no bottom signal has fired, one line sa
 
 ```
 ⚪ No crash alarm is on any more: Volatility shock (on at 2 closes from Nov 5). Going quiet without a
-bottom signal is not an all-clear. Since 1993 (61 clearings): 32% saw a lower low within 20 days (typical 19%).
+bottom signal is not an all-clear. Since 1993 (77 clearings): 28% saw a lower low within 20 days (typical 19%).
 ```
 
 ## How it works
@@ -299,7 +299,7 @@ So:
 - **Crash alarms are late.** By the time one fires about two thirds of the fall is over, and SPY's next 20 days have on average been better than a typical 20 days, not worse, in bigger swings both ways. Read one as *volatility is here*, not as a sell signal. Lowering their thresholds fires them a little earlier and about twice as often, with no fewer false alarms.
 - **A crash alarm getting worse has meant more**: deeper falls followed, both before 2020 and since.
 - **One earlier warning held up.** Thirteen indicators that fire nearer the highs were tested on their own: VIX curve flattening or backwardation, VIX jumps, credit weakening, a first big down day, VVIX, SKEW, MOVE, the yen, a break of the 50-day average, and small caps, equal-weight, cyclicals and semiconductors against the index. Most were no better than a typical day once tested on 2020 onward; looser VIX-curve rules matched the crash alarms' hit rate only by alerting 7–8 times a year; MOVE and small caps fired after SPY had already fallen 9–11% in one of the two periods. Two together were different: the VIX curve leaving its normal shape while junk bonds lag Treasuries, with SPY still within 5% of its high. Through 2019 a 3% fall followed 48% of the time against 27% for a typical day (31 alerts), and since 2020 62% against 32% (8 alerts, among them Jan 27 and Feb 24 2020 and Feb 27 2025). It is still wrong about half the time, eight alerts is a small test, and it is the survivor of 28 rules tried, so some of that edge is luck. It posts as an early warning, not a crash alarm.
-- **Bottom signals worked in the 2020s and not before.** After them SPY averaged +3.1% over 20 days since 2020 against +1.1% for a typical 20 days, but +0.2% against +0.7% through 2019. Only capitulation beat a typical week in both periods. Credit healing and yen stabilizing show no edge over the whole history, so they are no longer posted.
+- **Bottom signals worked in the 2020s and not before.** After the two that post, SPY averaged +2.9% over 20 days since 2020 against +1.1% for a typical 20 days, but +0.8% against +0.7% through 2019. Only capitulation beat a typical week in both periods. Credit healing and yen stabilizing show no edge over the whole history, so they are no longer posted.
 - The sample is a handful of real crises. Every message carries its own signal's record so the numbers travel with the alert.
 
 Where the history is thin: the 9-day VIX starts in 2011 (so the curve leg, the early warning and fear normalizing do too), SOFR and interest on reserves in 2021, and FRED serves only the last three years of the high-yield spread. FRED publishes each print a business day late and Yahoo's daily FX bars carry no closing price (the close is taken from where the next bar opens); the replay sees both as a live run would. Yahoo serves hourly bars for about two years, which is all the mid-session comparison can cover.

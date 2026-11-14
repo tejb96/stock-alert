@@ -140,8 +140,7 @@ RECORD = {
     "vol_normalizing": "Since 2011 (45 alerts): next 20 days +1.7% (typical +1.0%); 66% of the rebound already gone; 11% saw a lower low.",
     WORSE_LABEL: "Since 1993 (65 re-alerts): worst close of the next 20 days -6.8% on average (typical -2.7%).",
 }
-# Measured while credit healing and yen stabilizing could still hold this note back.
-CLEARED_RECORD = "Since 1993 (61 clearings): 32% saw a lower low within 20 days (typical 19%)."
+CLEARED_RECORD = "Since 1993 (77 clearings): 28% saw a lower low within 20 days (typical 19%)."
 
 
 @dataclass(frozen=True)
@@ -504,7 +503,8 @@ class Group:
 
 
 def groups(market: Market, posts: list[Post], first: date, last: date) -> list[Group]:
-    """Posts in [first, last] by signal (first alerts), then every escalation, then every clearing."""
+    """Posts in [first, last] by signal (first alerts), each side's posted first alerts together, then
+    every escalation, then every clearing. UNPOSTED signals keep their own rows but stay out of the totals."""
     spy = market["SPY"]
     everyday = {d: score(spy.values, i, d) for i, d in enumerate(spy.dates) if first <= d <= last}
 
@@ -518,7 +518,7 @@ def groups(market: Market, posts: list[Post], first: date, last: date) -> list[G
         if possible is not None and possible <= last:
             out.append(group(key, spec.side, max(first, possible), (p for p in posts if p.key == key and p.kind == NEW)))
     for side, label in ALL_LABEL.items():
-        out.append(group(label, side, first, (p for p in posts if p.side == side and p.kind == NEW)))
+        out.append(group(label, side, first, (p for p in posts if p.side == side and p.kind == NEW and p.posted)))
     out.append(group(WORSE_LABEL, BEAR, first, (p for p in posts if p.kind == WORSE)))
     out.append(group(CLEARED_LABEL, BEAR, first, (p for p in posts if p.kind == CLEARED)))
     return out
