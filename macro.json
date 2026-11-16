@@ -1,8 +1,6 @@
 {
- "active": [
-  "vol_normalizing"
- ],
- "asof": "2026-11-13",
+ "active": [],
+ "asof": "2026-11-16",
  "bottomed": false,
  "fired": {
   "vol_normalizing": "2026-11-11",
