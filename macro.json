@@ -1,8 +1,6 @@
 {
- "active": [
-  "vol_shock"
- ],
- "asof": "2026-11-17",
+ "active": [],
+ "asof": "2026-11-18",
  "bottomed": false,
  "fired": {
   "vol_normalizing": "2026-11-11",
@@ -19,11 +17,5 @@
    "spy": 732.44
   }
  },
- "open": {
-  "vol_shock": {
-   "sessions": 1,
-   "since": "2026-11-17",
-   "title": "Volatility shock"
-  }
- }
+ "open": {}
 }
