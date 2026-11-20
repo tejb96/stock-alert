@@ -2,26 +2,6 @@
  "buys": [
   {
    "member": "Gilbert Cisneros",
-   "ticker": "AGIO",
-   "traded": "2026-08-20"
-  },
-  {
-   "member": "Gilbert Cisneros",
-   "ticker": "AORT",
-   "traded": "2026-08-20"
-  },
-  {
-   "member": "Gilbert Cisneros",
-   "ticker": "ATRC",
-   "traded": "2026-08-20"
-  },
-  {
-   "member": "Gilbert Cisneros",
-   "ticker": "CECO",
-   "traded": "2026-08-20"
-  },
-  {
-   "member": "Gilbert Cisneros",
    "ticker": "ETN",
    "traded": "2026-08-27"
   },
@@ -29,11 +9,6 @@
    "member": "Gilbert Cisneros",
    "ticker": "GS",
    "traded": "2026-08-26"
-  },
-  {
-   "member": "Gilbert Cisneros",
-   "ticker": "HMN",
-   "traded": "2026-08-20"
   },
   {
    "member": "Gilbert Cisneros",
@@ -54,11 +29,6 @@
    "member": "April McClain Delaney",
    "ticker": "ESE",
    "traded": "2026-08-24"
-  },
-  {
-   "member": "April McClain Delaney",
-   "ticker": "ESE",
-   "traded": "2026-08-20"
   },
   {
    "member": "April McClain Delaney",
@@ -89,11 +59,6 @@
    "member": "Scott Scott Franklin",
    "ticker": "PEP",
    "traded": "2026-08-26"
-  },
-  {
-   "member": "Thomas H. Kean",
-   "ticker": "MTZ",
-   "traded": "2026-08-21"
   },
   {
    "member": "David J. Taylor",
@@ -714,6 +679,11 @@
    "member": "Byron Donalds",
    "ticker": "IBKR",
    "traded": "2026-10-02"
+  },
+  {
+   "member": "Michael Rulli",
+   "ticker": "MSFT",
+   "traded": "2026-11-04"
   }
  ],
  "seen": {
@@ -781,6 +751,10 @@
   "20035811": "2026-11-16",
   "20035821": "2026-11-11",
   "20035826": "2026-11-11",
-  "20035831": "2026-11-12"
+  "20035831": "2026-11-12",
+  "20036844": "2026-11-19",
+  "20036849": "2026-11-18",
+  "20036855": "2026-11-18",
+  "20036864": "2026-11-18"
  }
 }
