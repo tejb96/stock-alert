@@ -1,14 +1,24 @@
 {
  "active": [
+  "vol_capitulation",
   "vol_shock"
  ],
- "asof": "2026-11-20",
+ "asof": "2026-11-23",
  "bottomed": false,
  "fired": {
+  "vol_capitulation": "2026-11-23",
   "vol_normalizing": "2026-11-11",
   "vol_shock": "2026-11-17"
  },
  "last": {
+  "vol_capitulation": {
+   "day": "2026-11-23",
+   "readings": {
+    "VIX": 26.62
+   },
+   "severity": 1.0,
+   "spy": 722.29
+  },
   "vol_shock": {
    "day": "2026-11-17",
    "readings": {
