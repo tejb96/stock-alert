@@ -7,58 +7,8 @@
   },
   {
    "member": "Gilbert Cisneros",
-   "ticker": "GS",
-   "traded": "2026-08-26"
-  },
-  {
-   "member": "Gilbert Cisneros",
    "ticker": "PWR",
    "traded": "2026-08-27"
-  },
-  {
-   "member": "Gilbert Cisneros",
-   "ticker": "WMT",
-   "traded": "2026-08-26"
-  },
-  {
-   "member": "Gilbert Cisneros",
-   "ticker": "WPM",
-   "traded": "2026-08-26"
-  },
-  {
-   "member": "Scott Scott Franklin",
-   "ticker": "ACN",
-   "traded": "2026-08-26"
-  },
-  {
-   "member": "Scott Scott Franklin",
-   "ticker": "MCD",
-   "traded": "2026-08-26"
-  },
-  {
-   "member": "Scott Scott Franklin",
-   "ticker": "NVO",
-   "traded": "2026-08-26"
-  },
-  {
-   "member": "Scott Scott Franklin",
-   "ticker": "PEP",
-   "traded": "2026-08-26"
-  },
-  {
-   "member": "David J. Taylor",
-   "ticker": "AEP",
-   "traded": "2026-08-26"
-  },
-  {
-   "member": "David J. Taylor",
-   "ticker": "AVGO",
-   "traded": "2026-08-26"
-  },
-  {
-   "member": "David J. Taylor",
-   "ticker": "FITB",
-   "traded": "2026-08-26"
   },
   {
    "member": "David J. Taylor",
@@ -674,6 +624,56 @@
    "member": "Ed Case",
    "ticker": "AAPL",
    "traded": "2026-11-16"
+  },
+  {
+   "member": "Harriet Hageman",
+   "ticker": "ABT",
+   "traded": "2026-09-08"
+  },
+  {
+   "member": "Harriet Hageman",
+   "ticker": "GIS",
+   "traded": "2026-08-27"
+  },
+  {
+   "member": "Harriet Hageman",
+   "ticker": "ISRG",
+   "traded": "2026-09-16"
+  },
+  {
+   "member": "Harriet Hageman",
+   "ticker": "MRSH",
+   "traded": "2026-08-27"
+  },
+  {
+   "member": "Harriet Hageman",
+   "ticker": "MRVL",
+   "traded": "2026-09-16"
+  },
+  {
+   "member": "Harriet Hageman",
+   "ticker": "MCD",
+   "traded": "2026-08-27"
+  },
+  {
+   "member": "Harriet Hageman",
+   "ticker": "PLD",
+   "traded": "2026-08-27"
+  },
+  {
+   "member": "Harriet Hageman",
+   "ticker": "NOW",
+   "traded": "2026-10-20"
+  },
+  {
+   "member": "Harriet Hageman",
+   "ticker": "SHOP",
+   "traded": "2026-09-16"
+  },
+  {
+   "member": "Harriet Hageman",
+   "ticker": "TXN",
+   "traded": "2026-10-14"
   }
  ],
  "seen": {
@@ -683,7 +683,6 @@
   "20035484": "2026-11-01",
   "20035487": "2026-10-14",
   "20035490": "2026-10-16",
-  "20035491": "2026-09-25",
   "20035498": "2026-09-30",
   "20035525": "2026-10-27",
   "20035528": "2026-09-27",
@@ -727,6 +726,7 @@
   "20035765": "2026-11-04",
   "20035770": "2026-11-05",
   "20035775": "2026-11-06",
+  "20035776": "2026-11-23",
   "20035778": "2026-11-05",
   "20035779": "2026-11-13",
   "20035780": "2026-11-06",
