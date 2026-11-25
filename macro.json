@@ -1,8 +1,9 @@
 {
  "active": [
-  "vol_capitulation"
+  "vol_capitulation",
+  "vol_shock"
  ],
- "asof": "2026-11-24",
+ "asof": "2026-11-25",
  "bottomed": false,
  "fired": {
   "vol_capitulation": "2026-11-23",
