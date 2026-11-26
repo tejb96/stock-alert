@@ -1,16 +1,6 @@
 {
  "buys": [
   {
-   "member": "Gilbert Cisneros",
-   "ticker": "ETN",
-   "traded": "2026-08-27"
-  },
-  {
-   "member": "Gilbert Cisneros",
-   "ticker": "PWR",
-   "traded": "2026-08-27"
-  },
-  {
    "member": "David J. Taylor",
    "ticker": "IBP",
    "traded": "2026-09-08"
@@ -632,33 +622,13 @@
   },
   {
    "member": "Harriet Hageman",
-   "ticker": "GIS",
-   "traded": "2026-08-27"
-  },
-  {
-   "member": "Harriet Hageman",
    "ticker": "ISRG",
    "traded": "2026-09-16"
   },
   {
    "member": "Harriet Hageman",
-   "ticker": "MRSH",
-   "traded": "2026-08-27"
-  },
-  {
-   "member": "Harriet Hageman",
    "ticker": "MRVL",
    "traded": "2026-09-16"
-  },
-  {
-   "member": "Harriet Hageman",
-   "ticker": "MCD",
-   "traded": "2026-08-27"
-  },
-  {
-   "member": "Harriet Hageman",
-   "ticker": "PLD",
-   "traded": "2026-08-27"
   },
   {
    "member": "Harriet Hageman",
@@ -739,10 +709,13 @@
   "20035826": "2026-11-11",
   "20035831": "2026-11-12",
   "20036844": "2026-11-19",
+  "20036848": "2026-11-24",
   "20036849": "2026-11-18",
   "20036855": "2026-11-18",
   "20036864": "2026-11-18",
+  "20036875": "2026-11-24",
   "20036883": "2026-11-20",
-  "20036891": "2026-11-21"
+  "20036891": "2026-11-21",
+  "20036908": "2026-11-24"
  }
 }
